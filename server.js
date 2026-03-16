@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,26 +9,28 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.post('/api/generate', async (req, res) => {
   try {
     const { prompt, systemPrompt } = req.body;
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
       return res.status(503).json({
-        error: 'API key not configured. Please add your ANTHROPIC_API_KEY to the .env file.'
+        error: 'API key not configured. Please add your OPENAI_API_KEY to the .env file.'
       });
     }
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+    const message = await client.chat.completions.create({
+      model: 'gpt-4o',
       max_tokens: 1500,
-      system: systemPrompt || 'You are a helpful AI assistant for language teachers. Provide clear, practical, classroom-ready responses.',
-      messages: [{ role: 'user', content: prompt }]
+      messages: [
+        { role: 'system', content: systemPrompt || 'You are a helpful AI assistant for language teachers. Provide clear, practical, classroom-ready responses.' },
+        { role: 'user', content: prompt }
+      ]
     });
 
-    res.json({ content: message.content[0].text });
+    res.json({ content: message.choices[0].message.content });
   } catch (error) {
     console.error('API Error:', error.message);
     res.status(500).json({ error: error.message });
