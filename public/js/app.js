@@ -211,6 +211,7 @@ function renderModuleCard(mod, idx) {
   const visited = (state.progress[mod.id]?.stepsVisited?.size || 0) > 0;
   const prevCompleted = idx === 0 || state.progress[MODULES[idx - 1].id]?.completed;
   const locked = !prevCompleted;
+  const isPractice = mod.id === 2;
 
   let statusLabel, statusClass;
   if (completed)     { statusLabel = '✓ Complete';    statusClass = 'status-completed';   }
@@ -220,11 +221,11 @@ function renderModuleCard(mod, idx) {
   const clickHandler = locked ? '' : `onclick="navigateStep(${mod.id}, 0)"`;
 
   return `
-    <div class="module-card ${completed ? 'completed' : ''} ${locked ? 'locked' : ''} fade-in fade-in-delay-${idx}" ${clickHandler}>
+    <div class="module-card ${completed ? 'completed' : ''} ${locked ? 'locked' : ''} ${isPractice ? 'practice' : ''} fade-in fade-in-delay-${idx}" ${clickHandler}>
       <div class="module-card-header">
         <div class="module-card-header-icon">${mod.icon}</div>
         <div class="module-card-header-info">
-          <div class="module-card-num">Module ${mod.id}</div>
+          <div class="module-card-num">Module ${mod.id}${isPractice ? ' <span class="practice-badge">Practice</span>' : ''}</div>
           <div class="module-card-title">${mod.title}</div>
         </div>
       </div>
