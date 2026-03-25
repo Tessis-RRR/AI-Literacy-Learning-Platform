@@ -4,17 +4,34 @@
 
 /* ── State ──────────────────────────────────────────────── */
 const state = {
-  view: 'dashboard',   // 'dashboard' | 'step'
+  view: 'dashboard',
   moduleId: null,
   stepIndex: 0,
-  progress: {},        // { moduleId: { stepsVisited: Set, completed: bool } }
-  quizAnswers: {},     // { questionIndex: selectedOption }
+  progress: {},
+  quizAnswers: {},
   quizChecked: false,
-  builderValues: {},   // { fieldKey: value }
-  reflectionValues: {},// { stepIndex_qIndex: text }
-  transferPrompt: '',
-  transferResponse: '',
-  transferReflection: ''
+  builderValues: {},
+  reflectionValues: {},
+  // Pre-test
+  pretestPrompt: '',
+  pretestEval: null,       // { scores, total, feedback, overall }
+  introSkipped: false,
+  // Faded example
+  fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
+  fadedEval: null,
+  fadedGenerated: '',
+  // Full practice
+  fullPracticeValues: {},  // { goal, context, task, constraints, output }
+  fullPracticeEval: null,
+  fullPracticeGenerated: '',
+  fullPracticePrevGenerated: '',
+  // Self-reflection
+  reflectionAnswers: {},   // { qi: { selected: [], other: '' } }
+  reflectionEditValues: null, // copy of fullPracticeValues seeded on first visit; edits stay here only
+  reflectionGibberish: false,
+  // Post-test
+  posttestPrompt: '',
+  posttestEval: null
 };
 
 /* ── Progress persistence ───────────────────────────────── */
@@ -23,7 +40,6 @@ function loadProgress() {
     const saved = localStorage.getItem('promptcraft_progress');
     if (saved) {
       const p = JSON.parse(saved);
-      // Re-hydrate Sets
       Object.keys(p).forEach(k => {
         p[k].stepsVisited = new Set(p[k].stepsVisited || []);
       });
@@ -95,10 +111,17 @@ function navigateStep(moduleId, stepIndex) {
 function nextStep() {
   const mod = MODULES.find(m => m.id === state.moduleId);
   if (!mod) return;
+
+  // Branch: skip intro (step 1) if pre-test score was high
+  if (state.stepIndex === 0 && state.introSkipped) {
+    markStepVisited(state.moduleId, 1); // count intro as visited
+    navigateStep(state.moduleId, 2);
+    return;
+  }
+
   if (state.stepIndex < mod.steps_data.length - 1) {
     navigateStep(state.moduleId, state.stepIndex + 1);
   } else {
-    // Last step — mark complete and show completion screen
     markModuleComplete(state.moduleId);
     state.view = 'complete';
     render();
@@ -108,6 +131,9 @@ function prevStep() {
   if (state.stepIndex > 0) {
     navigateStep(state.moduleId, state.stepIndex - 1);
   }
+}
+function reviewIntro() {
+  navigateStep(state.moduleId, 1);
 }
 
 /* ── Root render ────────────────────────────────────────── */
@@ -169,16 +195,12 @@ function renderDashboard() {
   return `
     <div class="landing fade-in">
       <div class="landing-hero">
-        <div class="landing-hero-badge">✦ AI Literacy for Teachers</div>
+        <div class="landing-hero-badge">✦ AI Literacy for Multilingual Teachers</div>
         <h1>Welcome to <span>PromptCraft</span></h1>
-        <p>Learn to write structured AI prompts that generate lesson plans, speaking activities, and reading materials — reliably and efficiently.</p>
+        <p>Learn to write structured AI prompts that generate lesson plans and bilingual teaching materials — reliably and efficiently.</p>
         <div class="landing-stats">
           <div class="landing-stat">
-            <span class="landing-stat-value">4</span>
-            <span class="landing-stat-label">Modules</span>
-          </div>
-          <div class="landing-stat">
-            <span class="landing-stat-value">60–80</span>
+            <span class="landing-stat-value">30</span>
             <span class="landing-stat-label">Minutes</span>
           </div>
           <div class="landing-stat">
@@ -189,15 +211,19 @@ function renderDashboard() {
             <span class="landing-stat-value">Live</span>
             <span class="landing-stat-label">AI Practice</span>
           </div>
+          <div class="landing-stat">
+            <span class="landing-stat-value">4</span>
+            <span class="landing-stat-label">Rubric Dimensions</span>
+          </div>
         </div>
         ${allDone
-          ? `<div class="callout success" style="text-align:left;max-width:460px;margin:0 auto;"><div class="callout-icon">🎉</div><div class="callout-body"><strong>Course complete!</strong> You have finished all four modules. Go back and revisit any module anytime.</div></div>`
+          ? `<div class="callout success" style="text-align:left;max-width:460px;margin:0 auto;"><div class="callout-icon">🎉</div><div class="callout-body"><strong>Module complete!</strong> You can revisit any section anytime.</div></div>`
           : `<button class="btn-start" onclick="startCourse()">${totalProgress() > 0 ? 'Continue Learning' : 'Start Learning →'}</button>`
         }
       </div>
 
       <div class="modules-section">
-        <h2>Course Modules</h2>
+        <h2>Module Overview</h2>
         <div class="modules-grid">
           ${MODULES.map((mod, idx) => renderModuleCard(mod, idx)).join('')}
         </div>
@@ -209,23 +235,18 @@ function renderModuleCard(mod, idx) {
   const pct = getModuleProgress(mod.id);
   const completed = state.progress[mod.id]?.completed;
   const visited = (state.progress[mod.id]?.stepsVisited?.size || 0) > 0;
-  const prevCompleted = idx === 0 || state.progress[MODULES[idx - 1].id]?.completed;
-  const locked = !prevCompleted;
-  const isPractice = mod.id === 2;
 
   let statusLabel, statusClass;
-  if (completed)     { statusLabel = '✓ Complete';    statusClass = 'status-completed';   }
-  else if (visited)  { statusLabel = '→ In Progress'; statusClass = 'status-in-progress'; }
-  else               { statusLabel = locked ? '🔒 Locked' : 'Not Started'; statusClass = 'status-not-started'; }
-
-  const clickHandler = locked ? '' : `onclick="navigateStep(${mod.id}, 0)"`;
+  if (completed)    { statusLabel = '✓ Complete';    statusClass = 'status-completed';   }
+  else if (visited) { statusLabel = '→ In Progress'; statusClass = 'status-in-progress'; }
+  else              { statusLabel = 'Not Started';   statusClass = 'status-not-started'; }
 
   return `
-    <div class="module-card ${completed ? 'completed' : ''} ${locked ? 'locked' : ''} ${isPractice ? 'practice' : ''} fade-in fade-in-delay-${idx}" ${clickHandler}>
+    <div class="module-card ${completed ? 'completed' : ''} fade-in fade-in-delay-${idx}" onclick="navigateStep(${mod.id}, 0)">
       <div class="module-card-header">
         <div class="module-card-header-icon">${mod.icon}</div>
         <div class="module-card-header-info">
-          <div class="module-card-num">Module ${mod.id}${isPractice ? ' <span class="practice-badge">Practice</span>' : ''}</div>
+          <div class="module-card-num">Module ${mod.id}</div>
           <div class="module-card-title">${mod.title}</div>
         </div>
       </div>
@@ -245,12 +266,11 @@ function renderModuleCard(mod, idx) {
 }
 
 function startCourse() {
-  // Find first incomplete module
   for (const mod of MODULES) {
     if (!state.progress[mod.id]?.completed) {
       const visited = state.progress[mod.id]?.stepsVisited;
-      const nextStep = visited ? visited.size : 0;
-      navigateStep(mod.id, Math.min(nextStep, mod.steps_data.length - 1));
+      const next = visited ? visited.size : 0;
+      navigateStep(mod.id, Math.min(next, mod.steps_data.length - 1));
       return;
     }
   }
@@ -265,27 +285,55 @@ function renderStep() {
   const isFirst = state.stepIndex === 0;
   const isLast  = state.stepIndex === mod.steps_data.length - 1;
 
-  const dots = mod.steps_data.map((_, i) => {
+  const dots = mod.steps_data.map((s, i) => {
     const cls = i === state.stepIndex ? 'active'
               : (state.progress[mod.id]?.stepsVisited?.has(i) ? 'done' : '');
-    return `<div class="step-dot ${cls}"></div>`;
+    const label = s.type === 'pretest' ? 'Pre-Test'
+                : s.type === 'posttest' ? 'Post-Test'
+                : s.title;
+    return `<div class="step-dot ${cls}" title="${label}"></div>`;
   }).join('');
 
   let content = '';
   switch (step.type) {
-    case 'info':        content = renderInfo(step);       break;
-    case 'comparison':  content = renderComparison(step); break;
-    case 'annotated':   content = renderAnnotated(step);  break;
-    case 'quiz':        content = renderQuiz(step);       break;
-    case 'builder':     content = renderBuilder(step);    break;
-    case 'playground':  content = renderPlayground(step); break;
-    case 'reflection':  content = renderReflection(step); break;
-    case 'transfer':    content = renderTransfer(step);   break;
-    default:            content = `<div class="content-card"><p>Step type not found.</p></div>`;
+    case 'pretest':        content = renderPretest(step);        break;
+    case 'info':           content = renderInfo(step);           break;
+    case 'comparison':     content = renderComparison(step);     break;
+    case 'annotated':      content = renderAnnotated(step);      break;
+    case 'quiz':           content = renderQuiz(step);           break;
+    case 'builder':        content = renderBuilder(step);        break;
+    case 'playground':     content = renderPlayground(step);     break;
+    case 'reflection':     content = renderReflection(step);     break;
+    case 'transfer':       content = renderTransfer(step);       break;
+    case 'faded':          content = renderFaded(step);          break;
+    case 'fullpractice':   content = renderFullPractice(step);   break;
+    case 'selfreflection': content = renderSelfReflection(step); break;
+    case 'posttest':       content = renderPosttest(step);       break;
+    default:               content = `<div class="content-card"><p>Step type not found.</p></div>`;
   }
 
+  // Determine if Next button should be disabled for steps that require submission
+  const requiresSubmit = ['pretest', 'posttest'].includes(step.type);
+  const pretestDone  = step.type === 'pretest'  && state.pretestEval;
+  const posttestDone = step.type === 'posttest' && state.posttestEval;
+  const nextDisabled = requiresSubmit && !(pretestDone || posttestDone) ? 'disabled' : '';
+
+  // Skip notice for intro step
+  let skipBanner = '';
+  if (step.type === 'info' && step.skippable && state.introSkipped) {
+    skipBanner = `
+      <div class="callout warning skip-banner">
+        <div class="callout-icon">⚡</div>
+        <div class="callout-body">
+          You scored well on the pre-test and skipped this section automatically. You are reviewing it now.
+        </div>
+      </div>`;
+  }
+
+  const isWide = step.type === 'selfreflection';
+
   return `
-    <div class="step-view fade-in">
+    <div class="step-view fade-in${isWide ? ' wide' : ''}">
       <div class="step-header">
         <div class="step-breadcrumb">
           <span>Module ${mod.id}</span> › <span>${mod.title}</span>
@@ -294,22 +342,148 @@ function renderStep() {
         <div class="step-dots">${dots}</div>
       </div>
 
+      ${skipBanner}
       ${content}
 
       <div class="step-nav">
         <button class="btn-nav" onclick="prevStep()" ${isFirst ? 'disabled' : ''}>← Previous</button>
         <span class="step-counter">Step ${state.stepIndex + 1} of ${mod.steps_data.length}</span>
-        <button class="btn-nav primary" onclick="nextStep()">${isLast ? 'Complete Module →' : 'Next →'}</button>
+        <button class="btn-nav primary" onclick="nextStep()" ${nextDisabled}>${isLast ? 'Complete Module →' : 'Next →'}</button>
       </div>
     </div>`;
 }
 
-/* ── Step renderers ─────────────────────────────────────── */
+/* ── PRE-TEST ───────────────────────────────────────────── */
+function renderPretest(step) {
+  const evalResult = state.pretestEval;
 
+  let evalHtml = '';
+  if (evalResult) {
+    evalHtml = renderEvalResult(evalResult);
+    if (state.introSkipped) {
+      evalHtml += `
+        <div class="callout success" style="margin-top:1rem">
+          <div class="callout-icon">⚡</div>
+          <div class="callout-body">
+            <strong>Great work!</strong> Your prompt already shows strong structure (${evalResult.total}/12).
+            You can skip the framework intro and go straight to the worked example.
+            <br><a href="#" onclick="reviewIntro(); return false;" style="color:var(--primary);font-weight:600">Review the 5-Part Framework anyway →</a>
+          </div>
+        </div>`;
+    } else {
+      evalHtml += `
+        <div class="callout info" style="margin-top:1rem">
+          <div class="callout-icon">📖</div>
+          <div class="callout-body">
+            Next, you'll go through the <strong>5-Part Prompt Framework</strong> before seeing a worked example. Click <strong>Next →</strong> when you are ready.
+          </div>
+        </div>`;
+    }
+  }
+
+  return `
+    <div class="content-card">
+      <div class="test-badge pretest-badge">Pre-Test · 2–5 min</div>
+      <p style="margin-bottom:1rem">${escHtml(step.instruction)}</p>
+      <div class="scenario-box">
+        <div class="scenario-box-label">Scenario</div>
+        <p>${escHtml(step.scenario)}</p>
+      </div>
+      <div style="margin-top:1.5rem">
+        <div class="playground-section-label">✏️ Your Prompt</div>
+        <textarea class="prompt-textarea" id="pretest-input"
+          placeholder="${escAttr(step.placeholder)}"
+          ${evalResult ? 'readonly' : ''}>${escHtml(state.pretestPrompt)}</textarea>
+      </div>
+      ${!evalResult ? `
+        <button class="btn-generate" id="pretest-btn" style="margin-top:1rem" onclick="submitPretest()">
+          Submit for Evaluation →
+        </button>` : ''}
+      ${evalHtml}
+    </div>`;
+}
+
+async function submitPretest() {
+  const input = document.getElementById('pretest-input');
+  const btn   = document.getElementById('pretest-btn');
+  if (!input) return;
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  state.pretestPrompt = prompt;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `Evaluating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+  }
+
+  try {
+    const result = await API.evaluate(prompt);
+    state.pretestEval = result;
+    if (result.total >= 8) state.introSkipped = true;
+  } catch (err) {
+    state.pretestEval = {
+      error: true, total: 0,
+      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
+      feedback: { procedural: err.message, conceptual: '', iteration: '', literacy: '' },
+      overall: 'Could not evaluate. Please check your connection and try again.'
+    };
+  }
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+/* ── RUBRIC EVAL RESULT ─────────────────────────────────── */
+function renderEvalResult(evalResult) {
+  if (evalResult.gibberish) {
+    return `
+      <div class="eval-result">
+        <div class="callout" style="border-left-color:var(--danger);background:#fff5f5">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-body">
+            <strong>Input not recognised.</strong> Your input appears to be gibberish or random text — it has been given a score of 0/12.
+            Please write a real prompt that addresses the scenario before submitting.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const dimLabels = {
+    procedural: 'Procedural Formulation',
+    conceptual: 'Conceptual Engagement',
+    iteration:  'Assessment & Iteration',
+    literacy:   'Reflective AI Literacy'
+  };
+  const scoreColor = s => s >= 3 ? 'dim-proficient' : s === 2 ? 'dim-developing' : 'dim-novice';
+  const scoreText  = s => s >= 3 ? 'Proficient' : s === 2 ? 'Developing' : 'Novice';
+
+  const dimCards = ['procedural','conceptual','iteration','literacy'].map(key => `
+    <div class="rubric-dim">
+      <div class="rubric-dim-header">
+        <span class="rubric-dim-name">${dimLabels[key]}</span>
+        <span class="dim-score ${scoreColor(evalResult.scores[key])}">${evalResult.scores[key]}/3 · ${scoreText(evalResult.scores[key])}</span>
+      </div>
+      <div class="rubric-dim-feedback">${escHtml(evalResult.feedback[key] || '')}</div>
+    </div>`).join('');
+
+  const totalColor = evalResult.total >= 8 ? 'eval-total-high' : evalResult.total >= 5 ? 'eval-total-mid' : 'eval-total-low';
+
+  return `
+    <div class="eval-result">
+      <div class="eval-header">
+        <div class="eval-total ${totalColor}">
+          <span class="eval-total-num">${evalResult.total}</span><span class="eval-total-denom"> / 12</span>
+        </div>
+        <div class="eval-overall">${escHtml(evalResult.overall || '')}</div>
+      </div>
+      <div class="rubric-grid">${dimCards}</div>
+    </div>`;
+}
+
+/* ── INFO ───────────────────────────────────────────────── */
 function renderInfo(step) {
   return `<div class="content-card">${step.content}</div>`;
 }
 
+/* ── COMPARISON ─────────────────────────────────────────── */
 function renderComparison(step) {
   const rows = step.analysis.map(r => `
     <div class="analysis-row">
@@ -319,7 +493,7 @@ function renderComparison(step) {
 
   return `
     <div class="content-card">
-      <p>Read both prompts carefully. Both are asking for the same thing — a lesson plan. But the quality of the AI output will be very different. Can you spot why?</p>
+      <p>Read both prompts carefully. Both ask for the same thing — a lesson plan. But the quality of the AI output will be very different. Can you spot why?</p>
       <div class="comparison-grid">
         <div class="comparison-panel weak">
           <div class="comparison-label">⚠ Weak Prompt</div>
@@ -337,6 +511,7 @@ function renderComparison(step) {
     </div>`;
 }
 
+/* ── ANNOTATED ──────────────────────────────────────────── */
 function renderAnnotated(step) {
   const legend = `
     <div class="framework-legend">
@@ -361,8 +536,16 @@ function renderAnnotated(step) {
 
   return `
     <div class="content-card">
-      <p><strong>Scenario:</strong> ${step.scenario}</p>
-      <p>Each coloured block below shows one part of the 5-part framework. Read the text, then the explanation of <em>why</em> it was written that way.</p>
+      <div class="scenario-box">
+        <div class="scenario-box-label">Scenario</div>
+        <p>${escHtml(step.scenario)}</p>
+      </div>
+      ${step.sourceText ? `
+      <div class="scenario-box" style="margin-top:0.75rem;border-left-color:var(--accent-secondary,#7c3aed)">
+        <div class="scenario-box-label">Source Text</div>
+        <p style="font-style:italic">${escHtml(step.sourceText)}</p>
+      </div>` : ''}
+      <p style="margin-top:1rem">Each coloured block below shows one part of the 5-part framework. Read the prompt text, then the explanation of <em>why</em> it was written that way.</p>
       ${legend}
       <div class="annotated-prompt">${blocks}</div>
       <div style="margin-top:1.5rem">
@@ -376,6 +559,7 @@ function componentIcon(type) {
   return { goal: '🎯', context: '👥', task: '📋', constraint: '🔒', output: '📄' }[type] || '•';
 }
 
+/* ── QUIZ ───────────────────────────────────────────────── */
 function renderQuiz(step) {
   const qs = step.questions.map((q, qi) => {
     const opts = q.options.map((opt, oi) => {
@@ -420,11 +604,12 @@ function renderQuiz(step) {
            </button>`
         : `<div class="callout success" style="margin-top:1rem">
              <div class="callout-icon">✅</div>
-             <div class="callout-body">You have reviewed all answers. Move on to the next step when ready.</div>
+             <div class="callout-body">You have reviewed all answers. Move on when ready.</div>
            </div>`}
     </div>`;
 }
 
+/* ── BUILDER ────────────────────────────────────────────── */
 function renderBuilder(step) {
   const fields = step.fields.map(f => `
     <div class="builder-field">
@@ -455,9 +640,7 @@ function renderBuilder(step) {
         ${preview || 'Fill in the fields above to see your prompt take shape…'}
       </div>
       ${preview
-        ? `<button class="btn-generate" style="margin-top:1rem" onclick="sendBuilderPrompt()">
-             ✦ Send to AI
-           </button>
+        ? `<button class="btn-generate" style="margin-top:1rem" onclick="sendBuilderPrompt()">✦ Send to AI</button>
            <div class="response-area" id="builder-response-area" style="margin-top:1rem;display:none">
              <div class="response-header">🤖 AI Response</div>
              <div class="response-body" id="builder-response-body"></div>
@@ -477,6 +660,7 @@ function buildPromptPreview() {
   return parts.filter(Boolean).join('\n\n');
 }
 
+/* ── PLAYGROUND ─────────────────────────────────────────── */
 function renderPlayground(step) {
   const s = step.scenario;
   const savedResponse = state[`playground_response_${state.moduleId}_${state.stepIndex}`] || '';
@@ -495,9 +679,7 @@ function renderPlayground(step) {
           <textarea class="prompt-textarea" id="playground-input" placeholder="${escAttr(step.placeholder)}">${escHtml(savedPrompt)}</textarea>
           <div class="prompt-hint">💡 ${step.hint}</div>
         </div>
-        <button class="btn-generate" id="playground-btn" onclick="sendPlaygroundPrompt()">
-          ✦ Generate Response
-        </button>
+        <button class="btn-generate" id="playground-btn" onclick="sendPlaygroundPrompt()">✦ Generate Response</button>
         <div class="response-area" id="playground-response-area" ${savedResponse ? '' : 'style="display:none"'}>
           <div class="response-header">🤖 AI Response</div>
           <div class="response-body" id="playground-response-body">${savedResponse}</div>
@@ -506,6 +688,7 @@ function renderPlayground(step) {
     </div>`;
 }
 
+/* ── REFLECTION ─────────────────────────────────────────── */
 function renderReflection(step) {
   const qs = step.questions.map((q, qi) => {
     const key = `${state.moduleId}_${state.stepIndex}_${qi}`;
@@ -524,12 +707,13 @@ function renderReflection(step) {
       <p>${step.intro}</p>
       <div class="callout info">
         <div class="callout-icon">📝</div>
-        <div class="callout-body">Your answers are saved locally as you type. There are no right or wrong answers — be honest and specific.</div>
+        <div class="callout-body">Your answers are saved locally as you type. There are no right or wrong answers.</div>
       </div>
     </div>
     <div class="reflection-questions">${qs}</div>`;
 }
 
+/* ── TRANSFER ───────────────────────────────────────────── */
 function renderTransfer(step) {
   const scenarioCards = step.challenge.scenarios.map(s => `
     <div class="callout info" style="margin-bottom:0.5rem">
@@ -541,17 +725,13 @@ function renderTransfer(step) {
   const savedRef = state.reflectionValues[refKey] || '';
 
   return `
-    <div class="content-card">
-      <p>${step.intro}</p>
-    </div>
-
+    <div class="content-card"><p>${step.intro}</p></div>
     <div class="transfer-challenge">
       <div class="transfer-badge">⚡ Transfer Challenge</div>
       <h3>${step.challenge.title}</h3>
       <p>${step.challenge.description}</p>
       ${scenarioCards}
     </div>
-
     <div class="content-card">
       <div class="playground-area">
         <div>
@@ -559,16 +739,13 @@ function renderTransfer(step) {
           <textarea class="prompt-textarea" id="transfer-input" placeholder="${escAttr(step.placeholder)}">${escHtml(state.transferPrompt)}</textarea>
           <div class="prompt-hint">💡 ${step.hint}</div>
         </div>
-        <button class="btn-generate" id="transfer-btn" onclick="sendTransferPrompt()">
-          ✦ Send to AI
-        </button>
+        <button class="btn-generate" id="transfer-btn" onclick="sendTransferPrompt()">✦ Send to AI</button>
         <div class="response-area" id="transfer-response-area" ${state.transferResponse ? '' : 'style="display:none"'}>
           <div class="response-header">🤖 AI Response</div>
           <div class="response-body" id="transfer-response-body">${escHtml(state.transferResponse)}</div>
         </div>
       </div>
     </div>
-
     ${state.transferResponse ? `
     <div class="content-card">
       <div class="reflection-q">
@@ -578,6 +755,552 @@ function renderTransfer(step) {
           oninput="saveReflection('${refKey}', this.value)">${escHtml(savedRef)}</textarea>
       </div>
     </div>` : ''}`;
+}
+
+/* ── FADED EXAMPLE ──────────────────────────────────────── */
+function renderFaded(step) {
+  const evalResult = state.fadedEval;
+
+  const fields = step.fields.map(f => {
+    const completion = state.fadedValues[f.key] || '';
+    const hasPrefix = !!f.prefix;
+
+    return `
+      <div class="faded-field">
+        <div class="faded-field-label">
+          <span class="legend-pill ${f.type}">${componentIcon(f.type)} ${f.label}</span>
+        </div>
+        ${hasPrefix ? `
+          <div class="faded-prefix">${escHtml(f.prefix)}</div>
+          <textarea class="faded-completion" id="faded-${f.key}"
+            placeholder="${escAttr(f.placeholder)}"
+            oninput="updateFaded('${f.key}', this.value)">${escHtml(completion)}</textarea>
+        ` : `
+          <textarea class="faded-full" id="faded-${f.key}"
+            placeholder="${escAttr(f.placeholder)}"
+            oninput="updateFaded('${f.key}', this.value)">${escHtml(completion)}</textarea>
+        `}
+        <div class="faded-tip">💡 ${f.tip}</div>
+      </div>`;
+  }).join('');
+
+  const assembledPrompt = assembleFadedPrompt(step);
+
+  return `
+    <div class="content-card">
+      <div class="scenario-box">
+        <div class="scenario-box-label">Your Scenario</div>
+        <p>${escHtml(step.scenario)}</p>
+      </div>
+      <div class="callout info" style="margin-top:1rem">
+        <div class="callout-icon">✏️</div>
+        <div class="callout-body">Complete the fields below using the scenario above. Pre-filled parts are already written for you — just add what's missing.</div>
+      </div>
+      <div class="faded-form">${fields}</div>
+
+      <div style="margin-top:1.5rem">
+        <div class="builder-preview-label">📋 Your assembled prompt</div>
+        <div class="full-prompt-preview ${assembledPrompt ? '' : 'empty'}" id="faded-preview">
+          ${assembledPrompt ? escHtml(assembledPrompt) : 'Fill in the fields above to see your prompt take shape…'}
+        </div>
+      </div>
+      <button class="btn-generate" id="faded-btn" style="margin-top:1rem"
+        onclick="submitFaded()" ${assembledPrompt ? '' : 'disabled'}>
+        Submit for Feedback →
+      </button>
+    </div>
+
+    ${evalResult ? `
+      <div class="content-card">
+        ${renderEvalResult(evalResult)}
+        ${!evalResult.gibberish && state.fadedGenerated ? `
+          <div style="margin-top:1.5rem">
+            <div class="practice-panels-header">📄 AI-Generated Lesson Plan</div>
+            <div class="response-body" style="margin-top:0">${escHtml(state.fadedGenerated)}</div>
+          </div>` : ''}
+        <div class="regen-notice" style="margin-top:1.5rem">
+          🔄 <strong>Want to improve your score?</strong> Edit any field above and click "Resubmit for Feedback" to see how changes affect the evaluation.
+        </div>
+        <button class="btn-generate" style="margin-top:1rem;background:var(--text-secondary)" onclick="submitFaded()">
+          Resubmit for Feedback →
+        </button>
+      </div>` : ''}`;
+}
+
+function assembleFadedPrompt(step) {
+  const parts = step.fields.map(f => {
+    const completion = (state.fadedValues[f.key] || '').trim();
+    if (!completion) return '';
+    if (f.prefix) return `${f.prefix} ${completion}`;
+    return completion;
+  }).filter(Boolean);
+  return parts.join('\n\n');
+}
+
+function updateFaded(key, value) {
+  state.fadedValues[key] = value;
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  const assembled = assembleFadedPrompt(step);
+
+  const previewEl = document.getElementById('faded-preview');
+  if (previewEl) {
+    previewEl.textContent = assembled || 'Fill in the fields above to see your prompt take shape…';
+    previewEl.className = `full-prompt-preview ${assembled ? '' : 'empty'}`;
+  }
+
+  const btn = document.getElementById('faded-btn');
+  if (btn) btn.disabled = !assembled;
+}
+
+async function submitFaded() {
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+
+  const prompt = assembleFadedPrompt(step);
+  if (!prompt.trim()) return;
+
+  // Extract only user-typed completions (not pre-filled prefixes) for gibberish check
+  const typedValues = step.fields
+    .map(f => (state.fadedValues[f.key] || '').trim())
+    .filter(Boolean);
+  const userTypedParts = typedValues.join('\n');
+
+  // Client-side pre-check: catch obviously trivial inputs instantly
+  const isObviouslyTrivial = typedValues.some(v => {
+    if (v.length <= 2) return true;                         // single char or 2-char
+    if (/^\d+$/.test(v)) return true;                      // only digits
+    if (/^(.)\1+$/.test(v)) return true;                   // repeated single char e.g. "aaa"
+    if (v.split(/\s+/).length < 3 && /^[a-zA-Z0-9]+$/.test(v)) return true; // 1-2 plain words
+    return false;
+  });
+
+  if (isObviouslyTrivial) {
+    state.fadedEval = { gibberish: true, total: 0,
+      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
+      feedback: { procedural: '', conceptual: '', iteration: '', literacy: '' },
+      overall: 'Your input does not look like a teaching prompt. Please write a real prompt for the given scenario.' };
+    state.fadedGenerated = '';
+    document.getElementById('app-main').innerHTML = renderStep();
+    return;
+  }
+
+  const btn = document.getElementById('faded-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `Evaluating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+  }
+
+  try {
+    state.fadedEval = await API.evaluate(prompt, userTypedParts || null);
+  } catch (err) {
+    state.fadedEval = {
+      error: true, total: 0,
+      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
+      feedback: { procedural: err.message, conceptual: '', iteration: '', literacy: '' },
+      overall: 'Could not evaluate. Please check your connection.'
+    };
+  }
+
+  // Only generate AI output if not gibberish
+  if (!state.fadedEval.gibberish) {
+    if (btn) {
+      btn.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+    }
+    try {
+      state.fadedGenerated = await API.generate(prompt, step.systemPrompt);
+    } catch (err) {
+      state.fadedGenerated = `Error generating output: ${err.message}`;
+    }
+  } else {
+    state.fadedGenerated = '';
+  }
+
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+/* ── FULL PRACTICE ──────────────────────────────────────── */
+function renderFullPractice(step) {
+  const evalResult  = state.fullPracticeEval;
+  const generated   = state.fullPracticeGenerated;
+  const prevGenerated = state.fullPracticePrevGenerated;
+
+  const fields = step.fields.map(f => `
+    <div class="practice-field">
+      <div class="practice-field-label">
+        <span class="legend-pill ${f.type}">${componentIcon(f.type)} ${f.label}</span>
+      </div>
+      <textarea class="builder-textarea" id="fp-${f.key}"
+        placeholder="${escAttr(f.tip)}"
+        oninput="updateFullPractice('${f.key}', this.value)">${escHtml(state.fullPracticeValues[f.key] || '')}</textarea>
+      <div class="faded-tip">💡 ${f.tip}</div>
+    </div>`).join('');
+
+  const hasContent = Object.values(state.fullPracticeValues).some(v => v.trim());
+
+  return `
+    <div class="content-card">
+      <div class="scenario-box">
+        <div class="scenario-box-label">Your Scenario</div>
+        <p>${escHtml(step.scenario)}</p>
+      </div>
+      <div class="callout info" style="margin-top:1rem">
+        <div class="callout-icon">✏️</div>
+        <div class="callout-body">Write a complete prompt using all 5 parts of the framework. Tip prompts are provided but the fields are blank — this is your prompt to write.</div>
+      </div>
+      <div class="practice-form">${fields}</div>
+      <button class="btn-generate" id="fp-btn" style="margin-top:1.5rem" onclick="submitFullPractice()"
+        ${hasContent ? '' : 'disabled'}>
+        ${evalResult ? '🔄 Regenerate' : '✦ Submit — Get Feedback & See Output'}
+      </button>
+      ${evalResult ? `<div class="regen-notice" style="margin-top:0.75rem">🔄 <strong>Edit any field above and click Regenerate</strong> to see how your changes affect both the AI score and the generated lesson plan.</div>` : ''}
+    </div>
+
+    ${evalResult ? `
+      <div class="content-card">
+        <div class="practice-panels-header">📊 Your Prompt Score & Feedback</div>
+        ${renderEvalResult(evalResult)}
+      </div>
+
+      <div class="content-card">
+        <div class="practice-panels-header">📄 AI-Generated Lesson Plan</div>
+        <div class="callout info" style="margin-bottom:1rem">
+          <div class="callout-icon">🔄</div>
+          <div class="callout-body"><strong>This is what your prompt produced.</strong> Edit your prompt above and click Regenerate to see how changes affect this output.</div>
+        </div>
+        <div class="response-body" style="margin-top:0">${escHtml(generated)}</div>
+        ${prevGenerated ? `
+          <details style="margin-top:1rem">
+            <summary style="cursor:pointer;color:var(--text-secondary);font-size:0.9rem">Show previous version</summary>
+            <div class="response-body" style="margin-top:0.75rem;opacity:0.7">${escHtml(prevGenerated)}</div>
+          </details>` : ''}
+      </div>` : ''}`;
+}
+
+function updateFullPractice(key, value) {
+  state.fullPracticeValues[key] = value;
+  // Toggle the submit button — never re-render on input (avoids focus loss)
+  const btn = document.getElementById('fp-btn');
+  if (btn) {
+    btn.disabled = !Object.values(state.fullPracticeValues).some(v => v.trim());
+  }
+}
+
+async function submitFullPractice() {
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+
+  const v = state.fullPracticeValues;
+  const promptParts = [v.goal, v.context, v.task, v.constraints, v.output].filter(p => p?.trim());
+  const prompt = promptParts.join('\n\n');
+  if (!prompt.trim()) return;
+
+  const btn = document.getElementById('fp-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+  }
+
+  // Save previous generated content
+  if (state.fullPracticeGenerated) {
+    state.fullPracticePrevGenerated = state.fullPracticeGenerated;
+  }
+
+  try {
+    const evalResult = await API.evaluate(prompt);
+    state.fullPracticeEval = evalResult;
+    if (evalResult.gibberish) {
+      state.fullPracticeGenerated = '';
+    } else {
+      state.fullPracticeGenerated = await API.generate(prompt, step.systemPrompt);
+    }
+  } catch (err) {
+    state.fullPracticeEval = {
+      error: true, total: 0,
+      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
+      feedback: { procedural: err.message, conceptual: '', iteration: '', literacy: '' },
+      overall: 'Could not evaluate. Please check your connection.'
+    };
+    state.fullPracticeGenerated = 'Could not generate. Please check your connection.';
+  }
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+/* ── SELF-REFLECTION ────────────────────────────────────── */
+function renderSelfReflection(step) {
+  if (!state.reflectionAnswers) state.reflectionAnswers = {};
+
+  const questions = step.questions.map((q, qi) => {
+    const ans = state.reflectionAnswers[qi] || { selected: [], other: '' };
+    const options = q.options.map((opt, oi) => {
+      const isSelected = ans.selected.includes(oi);
+      return `<button class="multiselect-option ${isSelected ? 'selected' : ''}"
+        onclick="toggleReflectionOption(${qi}, ${oi})">${escHtml(opt)}</button>`;
+    }).join('');
+
+    return `
+      <div class="reflection-multiselect-q">
+        <div class="reflection-q-num">${q.num}</div>
+        <div class="reflection-q-text">${escHtml(q.question)}</div>
+        <div class="multiselect-options">${options}</div>
+        <div class="other-input-wrap">
+          <label class="other-label">Other:</label>
+          <textarea class="other-textarea" placeholder="Write your own reflection here…"
+            oninput="saveReflectionOther(${qi}, this.value)">${escHtml(ans.other || '')}</textarea>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Seed reflection edit values from full practice on first visit — never writes back
+  if (!state.reflectionEditValues) {
+    state.reflectionEditValues = { ...state.fullPracticeValues };
+  }
+
+  // Right panel: editable prompt + regenerate + output
+  const v = state.reflectionEditValues;
+  const rightFields = [
+    { key: 'goal',        label: 'Goal',          type: 'goal'       },
+    { key: 'context',     label: 'Context',       type: 'context'    },
+    { key: 'task',        label: 'Task',           type: 'task'       },
+    { key: 'constraints', label: 'Constraints',    type: 'constraint' },
+    { key: 'output',      label: 'Output Format',  type: 'output'     }
+  ].map(f => `
+    <div class="right-field">
+      <div class="right-field-label">
+        <span class="legend-pill ${f.type}" style="font-size:0.75rem;padding:0.2rem 0.5rem">${f.label}</span>
+      </div>
+      <textarea class="compact-textarea" rows="2"
+        oninput="updateReflectionField('${f.key}', this.value)">${escHtml(v[f.key] || '')}</textarea>
+    </div>`).join('');
+
+  const generated = state.fullPracticeGenerated;
+
+  return `
+    <p class="reflection-intro">${step.intro}</p>
+    <div class="reflection-split">
+      <div class="reflection-left">
+        <div class="reflection-panel-header">💭 Reflect</div>
+        <div class="callout info" style="margin-bottom:1rem">
+          <div class="callout-icon">☑</div>
+          <div class="callout-body">Select all that apply — you can choose multiple options for each question.</div>
+        </div>
+        ${questions}
+      </div>
+
+      <div class="reflection-right">
+        <div class="reflection-panel-header">🔄 Refine Your Prompt</div>
+        <div class="callout warning" style="margin-bottom:1rem">
+          <div class="callout-icon">💡</div>
+          <div class="callout-body"><strong>Try it!</strong> Edit any part of your prompt below and click Regenerate to see how the output changes.</div>
+        </div>
+        ${rightFields}
+        <button class="btn-generate" id="reflect-regen-btn" style="margin-top:1rem;width:100%" onclick="regenReflection()">
+          🔄 Regenerate Output
+        </button>
+        ${state.reflectionGibberish ? `
+          <div class="eval-result" style="margin-top:1.25rem">
+            <div class="callout" style="border-left-color:var(--danger);background:#fff5f5">
+              <div class="callout-icon">⚠️</div>
+              <div class="callout-body">
+                <strong>Input not recognised as a teaching prompt.</strong> Your prompt appears to be gibberish or too short — it has been given a score of 0/12.
+                Please revise your prompt above and click Regenerate Output again.
+              </div>
+            </div>
+          </div>` : generated ? `
+          <div class="response-area" style="margin-top:1.25rem;display:block">
+            <div class="response-header">📄 AI-Generated Lesson Plan</div>
+            <div class="response-body" id="reflect-output">${escHtml(generated)}</div>
+          </div>` : `
+          <div class="callout info" style="margin-top:1.25rem">
+            <div class="callout-icon">📄</div>
+            <div class="callout-body">Complete the Full Prompt Practice step first to see your generated lesson plan here.</div>
+          </div>`}
+      </div>
+    </div>`;
+}
+
+function toggleReflectionOption(qi, oi) {
+  if (!state.reflectionAnswers[qi]) {
+    state.reflectionAnswers[qi] = { selected: [], other: '' };
+  }
+  const sel = state.reflectionAnswers[qi].selected;
+  const idx = sel.indexOf(oi);
+  if (idx === -1) sel.push(oi);
+  else sel.splice(idx, 1);
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+function updateReflectionField(key, value) {
+  if (!state.reflectionEditValues) state.reflectionEditValues = {};
+  state.reflectionEditValues[key] = value;
+  // No re-render — just save to state (avoids focus loss)
+}
+
+function saveReflectionOther(qi, value) {
+  if (!state.reflectionAnswers[qi]) {
+    state.reflectionAnswers[qi] = { selected: [], other: '' };
+  }
+  state.reflectionAnswers[qi].other = value;
+}
+
+async function regenReflection() {
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+
+  const v = state.reflectionEditValues || state.fullPracticeValues;
+  const typedValues = [v.goal, v.context, v.task, v.constraints, v.output].map(s => (s || '').trim()).filter(Boolean);
+  const prompt = typedValues.join('\n\n');
+  if (!prompt.trim()) return;
+
+  // Instant pre-check for obviously trivial inputs
+  const isObviouslyTrivial = typedValues.some(val => {
+    if (val.length <= 2) return true;
+    if (/^\d+$/.test(val)) return true;
+    if (/^(.)\1+$/.test(val)) return true;
+    if (val.split(/\s+/).length < 3 && /^[a-zA-Z0-9]+$/.test(val)) return true;
+    return false;
+  });
+  if (isObviouslyTrivial) {
+    state.reflectionGibberish = true;
+    document.getElementById('app-main').innerHTML = renderStep();
+    return;
+  }
+
+  const btn = document.getElementById('reflect-regen-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = `Checking… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
+
+  let evalResult;
+  try {
+    evalResult = await API.evaluate(prompt);
+    state.fullPracticeEval = evalResult;
+  } catch (_) {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Regenerate Output'; }
+    return;
+  }
+
+  if (evalResult.gibberish) {
+    state.reflectionGibberish = true;
+    document.getElementById('app-main').innerHTML = renderStep();
+    return;
+  }
+
+  // Clear any previous gibberish warning and regenerate
+  state.reflectionGibberish = false;
+  if (btn) { btn.innerHTML = `Regenerating… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
+
+  try {
+    state.fullPracticeGenerated = await API.generate(prompt, step.systemPrompt);
+  } catch (err) {
+    state.fullPracticeGenerated = `Error generating output: ${err.message}`;
+  }
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+/* ── POST-TEST ──────────────────────────────────────────── */
+function renderPosttest(step) {
+  const evalResult = state.posttestEval;
+  const preEval    = state.pretestEval;
+
+  let evalHtml = '';
+  if (evalResult) {
+    evalHtml = renderEvalResult(evalResult);
+
+    // Score comparison
+    if (preEval) {
+      const preScore  = preEval.total  || 0;
+      const postScore = evalResult.total || 0;
+      const diff = postScore - preScore;
+      const diffText = diff > 0 ? `+${diff}` : `${diff}`;
+      const diffColor = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-secondary)';
+
+      evalHtml = `
+        <div class="score-compare">
+          <div class="score-compare-title">Your Progress</div>
+          <div class="score-compare-row">
+            <div class="score-compare-item">
+              <div class="score-compare-label">Pre-Test</div>
+              <div class="score-compare-bar-wrap">
+                <div class="score-compare-bar" style="width:${(preScore/12)*100}%"></div>
+              </div>
+              <div class="score-compare-num">${preScore}/12</div>
+            </div>
+            <div class="score-compare-item">
+              <div class="score-compare-label">Post-Test</div>
+              <div class="score-compare-bar-wrap">
+                <div class="score-compare-bar post" style="width:${(postScore/12)*100}%"></div>
+              </div>
+              <div class="score-compare-num">${postScore}/12</div>
+            </div>
+          </div>
+          <div class="score-compare-diff" style="color:${diffColor}">
+            ${diff === 0 ? 'Same score as pre-test' : `${diffText} points from pre-test`}
+          </div>
+        </div>
+        ${renderEvalResult(evalResult)}`;
+    }
+
+    evalHtml += `
+      <div class="callout success" style="margin-top:1rem">
+        <div class="callout-icon">🎉</div>
+        <div class="callout-body">
+          <strong>Module complete!</strong> You now have the skills to write structured prompts that generate classroom-ready, culturally appropriate lesson materials. Click <strong>Complete Module →</strong> to finish.
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="content-card">
+      <div class="test-badge posttest-badge">Post-Test · 5 min</div>
+      <p style="margin-bottom:1rem">${escHtml(step.instruction)}</p>
+      <div class="scenario-box">
+        <div class="scenario-box-label">Scenario</div>
+        <p>${escHtml(step.scenario)}</p>
+      </div>
+      <div class="scenario-box" style="margin-top:0.75rem;border-left-color:var(--warning)">
+        <div class="scenario-box-label" style="color:var(--warning)">Source Text</div>
+        <p style="font-style:italic">${escHtml(step.sourceText)}</p>
+      </div>
+      <div style="margin-top:1.5rem">
+        <div class="playground-section-label">✏️ Your Prompt</div>
+        <textarea class="prompt-textarea" id="posttest-input"
+          placeholder="${escAttr(step.placeholder)}"
+          ${evalResult ? 'readonly' : ''}>${escHtml(state.posttestPrompt)}</textarea>
+      </div>
+      ${!evalResult ? `
+        <button class="btn-generate" id="posttest-btn" style="margin-top:1rem" onclick="submitPosttest()">
+          Submit for Evaluation →
+        </button>` : ''}
+      ${evalHtml}
+    </div>`;
+}
+
+async function submitPosttest() {
+  const input = document.getElementById('posttest-input');
+  const btn   = document.getElementById('posttest-btn');
+  if (!input) return;
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  state.posttestPrompt = prompt;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `Evaluating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+  }
+
+  try {
+    state.posttestEval = await API.evaluate(prompt);
+  } catch (err) {
+    state.posttestEval = {
+      error: true, total: 0,
+      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
+      feedback: { procedural: err.message, conceptual: '', iteration: '', literacy: '' },
+      overall: 'Could not evaluate. Please check your connection.'
+    };
+  }
+  document.getElementById('app-main').innerHTML = renderStep();
 }
 
 /* ── Module complete ────────────────────────────────────── */
@@ -590,59 +1313,35 @@ function renderComplete() {
     <div class="step-view fade-in">
       <div class="module-complete">
         <div class="complete-icon">${isLastMod ? '🏆' : '🎉'}</div>
-        <h2>${isLastMod ? 'Course Complete!' : `Module ${state.moduleId} Complete!`}</h2>
+        <h2>${isLastMod ? 'Module Complete!' : `Module ${state.moduleId} Complete!`}</h2>
         <p>${isLastMod
-          ? 'Congratulations — you have completed all four modules of PromptCraft. You now have the skills to write structured prompts that generate high-quality teaching materials.'
-          : `Great work! You have finished "${mod?.title}". You are ready to continue to the next module.`
+          ? 'Congratulations — you have completed PromptCraft. You now have the skills to write structured prompts that generate high-quality, culturally appropriate lesson materials for your multilingual classroom.'
+          : `Great work! You have finished "${mod?.title}". You are ready for the next module.`
         }</p>
         ${isLastMod
           ? `<button class="btn-back-dashboard" onclick="navigateDashboard()">← Back to Dashboard</button>`
           : `<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
                <button class="btn-back-dashboard" onclick="navigateDashboard()">← Back to Dashboard</button>
-               <button class="btn-start" onclick="navigateStep(${nextMod.id}, 0)">Start ${nextMod.title} →</button>
+               <button class="btn-start" onclick="navigateStep(${nextMod.id}, 0)">Start Next Module →</button>
              </div>`
         }
       </div>
-      ${!isLastMod ? '' : `
-        <div class="content-card">
-          <h2>What you have learned</h2>
-          <ul>
-            <li><strong>Module 1:</strong> Why prompts matter and the 5-part framework (Goal, Context, Task, Constraints, Output Format)</li>
-            <li><strong>Module 2:</strong> How to learn from expert prompt examples and build structured prompts</li>
-            <li><strong>Module 3:</strong> How to apply the framework in real teaching contexts — lesson plans, speaking activities, and reading tasks</li>
-            <li><strong>Module 4:</strong> How to reflect on prompt choices and transfer the skill beyond teaching</li>
-          </ul>
-          <div class="callout success">
-            <div class="callout-icon">🚀</div>
-            <div class="callout-body">
-              <strong>Keep practising</strong>
-              The more you use structured prompts in your daily teaching preparation, the more natural it becomes. Return to the Prompt Playground in Module 3 anytime you need to generate new materials.
-            </div>
-          </div>
-        </div>`}
     </div>`;
 }
 
-/* ── Event listeners (attached after render) ────────────── */
-function attachStepListeners() {
-  // Nothing extra needed — handlers are inline for simplicity
-}
+/* ── Event listeners ────────────────────────────────────── */
+function attachStepListeners() {}
 
 /* ── Quiz handlers ──────────────────────────────────────── */
 function selectQuizAnswer(qi, oi) {
   if (state.quizChecked) return;
   state.quizAnswers[qi] = oi;
-  // Re-render the step in place
-  const mod = MODULES.find(m => m.id === state.moduleId);
-  const step = mod.steps_data[state.stepIndex];
-  const main = document.getElementById('app-main');
-  main.innerHTML = renderStep();
+  document.getElementById('app-main').innerHTML = renderStep();
 }
 
 function checkAnswers() {
   state.quizChecked = true;
-  const main = document.getElementById('app-main');
-  main.innerHTML = renderStep();
+  document.getElementById('app-main').innerHTML = renderStep();
 }
 
 /* ── Builder handlers ───────────────────────────────────── */
@@ -654,11 +1353,7 @@ function updateBuilder(key, value) {
     preview.textContent = text || 'Fill in the fields above to see your prompt take shape…';
     preview.className = `builder-preview ${text ? '' : 'empty'}`;
   }
-  // Show/hide the send button by re-rendering the card bottom part
-  // (simple approach: re-render the full step)
-  const main = document.getElementById('app-main');
-  main.innerHTML = renderStep();
-  // Restore focus to active textarea
+  document.getElementById('app-main').innerHTML = renderStep();
   const el = document.getElementById(`builder-${key}`);
   if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
@@ -666,15 +1361,12 @@ function updateBuilder(key, value) {
 async function sendBuilderPrompt() {
   const prompt = buildPromptPreview();
   if (!prompt.trim()) return;
-
   const responseArea = document.getElementById('builder-response-area');
   const responseBody = document.getElementById('builder-response-body');
   if (!responseArea || !responseBody) return;
-
   responseArea.style.display = '';
   responseBody.className = 'response-body loading';
   responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
-
   try {
     const result = await API.generate(prompt, 'You are an expert EFL/ESL curriculum designer. Create detailed, practical, classroom-ready teaching materials. Follow the format and requirements specified in the prompt.');
     responseBody.className = 'response-body';
@@ -692,25 +1384,18 @@ async function sendPlaygroundPrompt() {
   const responseArea = document.getElementById('playground-response-area');
   const responseBody = document.getElementById('playground-response-body');
   if (!input || !responseArea || !responseBody) return;
-
   const prompt = input.value.trim();
   if (!prompt) return;
-
-  // Save the typed prompt
   state[`playground_prompt_${state.moduleId}_${state.stepIndex}`] = prompt;
-
   const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
-  const systemPrompt = step?.systemPrompt || '';
-
   btn.disabled = true;
   btn.textContent = 'Generating…';
   responseArea.style.display = '';
   responseBody.className = 'response-body loading';
-  responseBody.innerHTML = `Generating your materials… <span class="loading-dots"><span></span><span></span><span></span></span>`;
-
+  responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
   try {
-    const result = await API.generate(prompt, systemPrompt);
+    const result = await API.generate(prompt, step?.systemPrompt || '');
     state[`playground_response_${state.moduleId}_${state.stepIndex}`] = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
@@ -729,31 +1414,23 @@ async function sendTransferPrompt() {
   const btn = document.getElementById('transfer-btn');
   const responseArea = document.getElementById('transfer-response-area');
   const responseBody = document.getElementById('transfer-response-body');
-  if (!input || !responseArea || !responseBody) return;
-
+  if (!input) return;
   const prompt = input.value.trim();
   if (!prompt) return;
-
   state.transferPrompt = prompt;
-
   const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
-  const systemPrompt = step?.systemPrompt || '';
-
   btn.disabled = true;
   btn.textContent = 'Generating…';
   responseArea.style.display = '';
   responseBody.className = 'response-body loading';
   responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
-
   try {
-    const result = await API.generate(prompt, systemPrompt);
+    const result = await API.generate(prompt, step?.systemPrompt || '');
     state.transferResponse = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
-    // Re-render to show reflection question
-    const main = document.getElementById('app-main');
-    main.innerHTML = renderStep();
+    document.getElementById('app-main').innerHTML = renderStep();
   } catch (err) {
     responseBody.className = 'response-body error';
     responseBody.textContent = `Error: ${err.message}`;
