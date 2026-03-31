@@ -19,7 +19,7 @@ By the end of this module, teachers will be able to:
 | Part | Description |
 |------|-------------|
 | **Goal** | What you want students to learn or be able to do |
-| **Context** | Who your students are (grade, proficiency, class size, L1 backgrounds) |
+| **Context** | Who your students are (grade, proficiency, class size, first language backgrounds) |
 | **Task** | What specific thing you want the AI to create |
 | **Constraints** | Rules, requirements, and things to avoid |
 | **Output Format** | How the AI should structure its response |
@@ -78,7 +78,7 @@ Pre-Test (2–5 min)
 > Read the scenario below and write the exact prompt you would give to an AI to help you create the lesson plan.
 
 **Scenario (displayed in a highlighted box):**
-> You are preparing a lesson for your Grade 7 ESL class of 24 students. Your class includes Spanish and Mandarin L1 speakers at B1 level. You need a 45-minute lesson plan on "describing daily routines" using the present simple tense. The plan should include a short bilingual vocabulary list (English and Spanish). Write the prompt you would give to an AI to create this lesson plan.
+> You are preparing a lesson for your Grade 7 ESL class of 24 students. Your class includes Spanish and Mandarin first language speakers at B1 level. You need a 45-minute lesson plan on "describing daily routines" using the present simple tense. The plan should include a short bilingual vocabulary list (English and Spanish). Write the prompt you would give to an AI to create this lesson plan.
 
 **Interaction:**
 - Large text input area for the learner's prompt
@@ -110,7 +110,7 @@ Pre-Test (2–5 min)
 | Card | Part | What It Means | Example |
 |------|------|--------------|---------|
 | 1 | 🎯 Goal | What you want students to learn | *"Students will practice past simple to describe a past event."* |
-| 2 | 👥 Context | Who your students are | *"Grade 8 ESL, 28 students, B1 level, mixed L1 backgrounds (Spanish, Arabic, Mandarin)."* |
+| 2 | 👥 Context | Who your students are | *"Grade 8 ESL, 28 students, B1 level, mixed first language backgrounds (Spanish, Arabic, Mandarin)."* |
 | 3 | 📋 Task | What you want the AI to create | *"Create a 50-minute lesson plan."* |
 | 4 | ⛔ Constraints | What the AI must follow or avoid | *"No technology needed. Include pair work. Vocabulary at B1 level. Structure: Hook → Teaching Points → Demo → Summary → Call to Action."* |
 | 5 | 📄 Output Format | How the response should be structured | *"Format as a table: Time \| Activity \| Materials \| Teacher Notes."* |
@@ -130,7 +130,7 @@ Pre-Test (2–5 min)
 
 ### Scenario
 
-> A Grade 8 ESL teacher wants to create a 50-minute lesson plan on using past simple tense to describe a past event. The class has 28 students at B1 level with mixed L1 backgrounds (Spanish, Arabic, Mandarin). No technology available in the classroom. The lesson should include pair work and a bilingual vocabulary list.
+> A Grade 8 ESL teacher wants to create a 50-minute lesson plan on using past simple tense to describe a past event. The class has 28 students at B1 level with mixed first language backgrounds (Spanish, Arabic, Mandarin). No technology available in the classroom. The lesson should include pair work and a bilingual vocabulary list.
 
 ### Full Prompt (Chunked and Color-Coded)
 
@@ -142,9 +142,9 @@ Pre-Test (2–5 min)
 ---
 
 **👥 Context**
-> "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed L1 backgrounds (Spanish, Arabic, and Mandarin). No student has learning support needs."
+> "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed first language backgrounds (Spanish, Arabic, and Mandarin). No student has learning support needs."
 
-*Why this works: Mixed L1 backgrounds signal to the AI that instructions should be in English only, and that translation shouldn't be assumed.*
+*Why this works: Mixed first language backgrounds signal to the AI that instructions should be in English only, and that translation shouldn't be assumed.*
 
 ---
 
@@ -181,7 +181,7 @@ Pre-Test (2–5 min)
 
 ### Scenario
 
-> You are teaching a Grade 7 ESL class of 25 students at A2–B1 level. Their primary L1 is Spanish. The lesson is 45 minutes and focuses on vocabulary for daily routines. You want the lesson to include a bilingual vocabulary list (English + conversational Mexican Spanish) and at least one communicative activity where students speak to each other.
+> You are teaching a Grade 7 ESL class of 25 students at A2–B1 level. Their primary first language is Spanish. The lesson is 45 minutes and focuses on vocabulary for daily routines. You want the lesson to include a bilingual vocabulary list (English + conversational Mexican Spanish) and at least one communicative activity where students speak to each other.
 
 ### Prompt Template (Faded)
 
@@ -193,7 +193,7 @@ Pre-Test (2–5 min)
 ---
 
 **👥 Context** *(partially pre-filled — learner completes)*
-> "I teach a Grade 7 ESL class of 25 students at A2–B1 level. Their L1 is _______________ and the class includes _______________."
+> "I teach a Grade 7 ESL class of 25 students at A2–B1 level. Their first language is _______________ and the class includes _______________."
 
 *Tip: Any other details about your students that the AI should know? Special needs, mixed ability, classroom environment?*
 
@@ -240,14 +240,14 @@ Pre-Test (2–5 min)
 
 ### Scenario
 
-> You are preparing a Grade 6 ESL class of 22 students at A2 level, with mixed L1 backgrounds (Mandarin and Arabic). You want to create a 40-minute lesson plan for a communicative speaking activity on the topic "talking about your weekend." The activity should include at least one pair or group speaking task and a simple informal assessment. Include a short bilingual vocabulary list in English and Mandarin.
+> You are preparing a Grade 6 ESL class of 22 students at A2 level, with mixed first language backgrounds (Mandarin and Arabic). You want to create a 40-minute lesson plan for a communicative speaking activity on the topic "talking about your weekend." The activity should include at least one pair or group speaking task and a simple informal assessment. Include a short bilingual vocabulary list in English and Mandarin.
 
 ### Prompt Form (5 parts, empty, with tips)
 
 | Part | Input | Tip |
 |------|-------|-----|
 | 🎯 Goal | [text area] | *What will students be able to do or say by the end?* |
-| 👥 Context | [text area] | *Grade, proficiency level, class size, L1 backgrounds, any special needs?* |
+| 👥 Context | [text area] | *Grade, proficiency level, class size, first language backgrounds, any special needs?* |
 | 📋 Task | [text area] | *What exactly should the AI create? Be specific about type and length.* |
 | ⛔ Constraints | [text area] | *What must be included or avoided? Lesson structure, language level, activity types?* |
 | 📄 Output Format | [text area] | *How should the response look? Table? Step-by-step? Specify columns if needed.* |
@@ -329,7 +329,7 @@ Each question has **3 options** (all are valid — they represent different refl
 **Q4. Now that you can see your prompt score, the feedback, and the generated content together — what would you change to get a better result?**
 
 - [ ] I'd be more specific in Constraints (e.g., name the exact activity types or lesson structure to follow)
-- [ ] I'd add more detail to Context (e.g., specific L1 backgrounds, proficiency level nuances, classroom constraints)
+- [ ] I'd add more detail to Context (e.g., specific first language backgrounds, proficiency level nuances, classroom constraints)
 - [ ] I'd rewrite the Output Format to get a cleaner, more directly usable structure
 
 **Other:** _______________
@@ -352,7 +352,7 @@ One open-ended prompt writing task, AI-scored against the 4-dimension rubric (ma
 
 ### Scenario
 
-> You are teaching a bilingual health and wellness unit to a Grade 7 class of 25 students at B1 level. L1 backgrounds include Spanish and Mandarin. You want to create a 45-minute lesson plan using the source text below. The plan should include bilingual vocabulary support and at least one communicative speaking activity.
+> You are teaching a bilingual health and wellness unit to a Grade 7 class of 25 students at B1 level. first language backgrounds include Spanish and Mandarin. You want to create a 45-minute lesson plan using the source text below. The plan should include bilingual vocabulary support and at least one communicative speaking activity.
 
 **Source Text:**
 > *"Energy drinks contain high concentrations of caffeine and taurine that temporarily block adenosine receptors in the brain, delaying the onset of sleep. However, this artificial alert state inevitably leads to a physiological 'crash,' characterized by severe fatigue and a measurable decrease in baseline executive functioning and emotional regulation."*
@@ -386,8 +386,8 @@ One open-ended prompt writing task, AI-scored against the 4-dimension rubric (ma
 
 | Section | Scenario | Topic |
 |---------|----------|-------|
-| Pre-Test | Grade 7 ESL, 24 students, B1, Spanish + Mandarin L1 | Daily routines — lesson plan + bilingual vocabulary |
-| Worked Example | Grade 8 ESL, 28 students, B1, mixed L1 | Past simple tense — lesson plan + bilingual vocabulary list |
-| Faded Example | Grade 7 ESL, 25 students, A2–B1, Spanish L1 | Daily routines vocabulary — bilingual list + communicative activity |
-| Full Prompt Practice | Grade 6 ESL, 22 students, A2, Mandarin + Arabic L1 | Communicative speaking — "talking about your weekend" |
-| Post-Test | Grade 7 bilingual, 25 students, B1, Spanish + Mandarin L1 | Health & wellness — energy drinks (source text adaptation) |
+| Pre-Test | Grade 7 ESL, 24 students, B1, Spanish + Mandarin first language | Daily routines — lesson plan + bilingual vocabulary |
+| Worked Example | Grade 8 ESL, 28 students, B1, mixed first language | Past simple tense — lesson plan + bilingual vocabulary list |
+| Faded Example | Grade 7 ESL, 25 students, A2–B1, Spanish first language | Daily routines vocabulary — bilingual list + communicative activity |
+| Full Prompt Practice | Grade 6 ESL, 22 students, A2, Mandarin + Arabic first language | Communicative speaking — "talking about your weekend" |
+| Post-Test | Grade 7 bilingual, 25 students, B1, Spanish + Mandarin first language | Health & wellness — energy drinks (source text adaptation) |

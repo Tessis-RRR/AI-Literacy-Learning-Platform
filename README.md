@@ -60,7 +60,7 @@ Teachers learn to structure every AI prompt with five parts:
 | Part | Purpose |
 |------|---------|
 | **Goal** | What students will learn or be able to do |
-| **Context** | Grade, proficiency level, class size, L1 backgrounds |
+| **Context** | Grade, proficiency level, class size, first language backgrounds |
 | **Task** | What the AI should create (type + duration) |
 | **Constraints** | What to include/avoid; lesson structure; language register |
 | **Output Format** | How the response should be structured (table, list, etc.) |
