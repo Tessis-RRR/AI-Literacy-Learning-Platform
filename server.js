@@ -68,8 +68,8 @@ DIMENSION 1 — Goal:
 
 DIMENSION 2 — Context:
 1: Missing grade level, proficiency level, or student background details.
-2: Names basic audience demographics but lacks specific learning challenges or L1 backgrounds.
-3: Explicitly states proficiency level, specific L1 backgrounds, and learning context or struggles.
+2: Names basic audience demographics but lacks specific learning challenges or first language backgrounds.
+3: Explicitly states proficiency level, specific first language backgrounds, and learning context or struggles.
 
 DIMENSION 3 — Task:
 1: Vague request (e.g., "make a lesson").

@@ -39,8 +39,8 @@ const MODULES = [
             <div class="framework-card context">
               <div class="fc-label">Part 2</div>
               <div class="fc-name">Context</div>
-              <div class="fc-desc">Who are your students? Grade level, language proficiency, class size, L1 backgrounds.</div>
-              <div class="fc-example">e.g. "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed L1 backgrounds."</div>
+              <div class="fc-desc">Who are your students? Grade level, language proficiency, class size, first language backgrounds.</div>
+              <div class="fc-example">e.g. "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed first language backgrounds."</div>
             </div>
             <div class="framework-card task">
               <div class="fc-label">Part 3</div>
@@ -81,13 +81,13 @@ const MODULES = [
             type: 'goal',
             label: 'Goal',
             text: 'Students will be able to describe daily routines using the present simple tense, focusing on the first-person "I" and third-person "he/she" forms. The lesson must include a bilingual learning goal in English and Mandarin.',
-            explanation: "Not just grammar (present simple) — also specify the exact forms (I vs he/she) to prevent the AI from generating a generic tense overview. Adding the bilingual requirement ensures the AI incorporates the students' L1 context."
+            explanation: "Not just grammar (present simple) — also specify the exact forms (I vs he/she) to prevent the AI from generating a generic tense overview. Adding the bilingual requirement ensures the AI incorporates the students' first language context."
           },
           {
             type: 'context',
             label: 'Context',
-            text: 'Grade 3 class of 24 students. The students are bilingual with Mandarin L1 backgrounds and have varying levels of English proficiency. Some students may struggle with verb conjugations between first and third person.',
-            explanation: 'Beyond basic demographics, specifying the L1 background and the specific learning struggle (verb conjugation) tells the AI where students will need extra scaffolding. 👉 Tip: Good context = not just "who they are" but "what they struggle with."'
+            text: 'Grade 3 class of 24 students. The students are bilingual with Mandarin first language backgrounds and have varying levels of English proficiency. Some students may struggle with verb conjugations between first and third person.',
+            explanation: 'Beyond basic demographics, specifying the first language background and the specific learning struggle (verb conjugation) tells the AI where students will need extra scaffolding. 👉 Tip: Good context = not just "who they are" but "what they struggle with."'
           },
           {
             type: 'task',
@@ -114,7 +114,7 @@ const MODULES = [
       {
         type: 'faded',
         title: 'Guided Practice — Complete the Prompt',
-        scenario: 'You are teaching a Grade 7 ESL class of 25 students at A2–B1 level. Their primary L1 is Spanish. The lesson is 45 minutes and focuses on vocabulary for daily routines. You want the lesson to include a bilingual vocabulary list (English + conversational Mexican Spanish) and at least one communicative speaking activity.',
+        scenario: 'You are teaching a Grade 7 ESL class of 25 students at A2–B1 level. Their primary language is Spanish. The lesson is 45 minutes and focuses on vocabulary for daily routines. You want the lesson to include a bilingual vocabulary list (English + conversational Mexican Spanish) and at least one communicative speaking activity.',
         fields: [
           {
             key: 'goal',
@@ -128,7 +128,7 @@ const MODULES = [
             key: 'context',
             label: 'Context',
             type: 'context',
-            prefix: 'I teach a Grade 7 ESL class of 25 students at A2–B1 level. Their L1 is Spanish.',
+            prefix: 'I teach a Grade 7 ESL class of 25 students at A2–B1 level. Their first language is Spanish.',
             placeholder: '…e.g. "Some students also have exposure to Mandarin at home."',
             tip: 'Any other details the AI should know? Classroom environment, mixed ability, specific challenges?'
           },
@@ -164,10 +164,10 @@ const MODULES = [
       {
         type: 'fullpractice',
         title: 'Your Turn — Write a Full Prompt',
-        scenario: 'You are preparing a Grade 6 ESL class of 22 students at A2 level, with mixed L1 backgrounds (Mandarin and Arabic). You want to create a 40-minute lesson plan for a communicative speaking activity on the topic "talking about your weekend." The activity should include at least one pair or group speaking task and a simple informal assessment. Include a short bilingual vocabulary list in English and Mandarin.',
+        scenario: 'You are preparing a Grade 6 ESL class of 22 students at A2 level, with mixed first language backgrounds (Mandarin and Arabic). You want to create a 40-minute lesson plan for a communicative speaking activity on the topic "talking about your weekend." The activity should include at least one pair or group speaking task and a simple informal assessment. Include a short bilingual vocabulary list in English and Mandarin.',
         fields: [
           { key: 'goal', label: 'Goal', type: 'goal', tip: 'What will students be able to do or say by the end of the lesson?' },
-          { key: 'context', label: 'Context', type: 'context', tip: 'Grade, proficiency level, class size, L1 backgrounds, any special needs?' },
+          { key: 'context', label: 'Context', type: 'context', tip: 'Grade, proficiency level, class size, first language backgrounds, any special needs?' },
           { key: 'task', label: 'Task', type: 'task', tip: 'What exactly should the AI create? Be specific about type and length.' },
           { key: 'constraints', label: 'Constraints', type: 'constraint', tip: 'What must be included or avoided? Lesson structure, language level, activity types?' },
           { key: 'output', label: 'Output Format', type: 'output', tip: 'How should the response look? Table? Step-by-step? Specify columns if needed.' }
@@ -213,7 +213,7 @@ const MODULES = [
             question: 'What would you change to get a better result from your prompt?',
             options: [
               'Be more specific in Constraints — name the exact activity types or lesson structure to follow',
-              'Add more detail to Context — specific L1 backgrounds, proficiency nuances, classroom constraints',
+              'Add more detail to Context — specific first language backgrounds, proficiency nuances, classroom constraints',
               'Rewrite the Output Format to get a cleaner, more directly usable structure'
             ]
           }
@@ -226,7 +226,7 @@ const MODULES = [
         type: 'posttest',
         title: 'Post-Test',
         instruction: 'Read the scenario and source text below. Write the exact prompt you would give to an AI to create a lesson plan based on this material.',
-        scenario: 'You are teaching a bilingual health and wellness unit to a Grade 7 class of 25 students at B1 level. L1 backgrounds include Spanish and Mandarin. You want to create a 45-minute lesson plan using the source text below. The plan should include bilingual vocabulary support and at least one communicative speaking activity.',
+        scenario: 'You are teaching a bilingual health and wellness unit to a Grade 7 class of 25 students at B1 level. first language backgrounds include Spanish and Mandarin. You want to create a 45-minute lesson plan using the source text below. The plan should include bilingual vocabulary support and at least one communicative speaking activity.',
         sourceText: '"Energy drinks contain high concentrations of caffeine and taurine that temporarily block adenosine receptors in the brain, delaying the onset of sleep. However, this artificial alert state inevitably leads to a physiological \'crash,\' characterized by severe fatigue and a measurable decrease in baseline executive functioning and emotional regulation."',
         placeholder: 'Write your full prompt here, using the 5-part framework (Goal, Context, Task, Constraints, Output Format)…'
       }
