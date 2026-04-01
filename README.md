@@ -45,7 +45,7 @@ Pre-Test (2–5 min)
 |------|------|-------------|
 | Pre-Test | `pretest` | Write one prompt for a scenario; AI scores it 1–12 against the rubric; ≥8 skips intro |
 | Framework Intro | `info` | The 5-part prompt framework (Goal, Context, Task, Constraints, Output Format); skippable |
-| Worked Example | `annotated` | Grade 8 ESL, past simple — full prompt in 5 color-coded annotated blocks with explanations |
+| Worked Example | `annotated` | Grade 3, daily routines — full prompt in 5 color-coded annotated blocks with explanations |
 | Faded Example | `faded` | Grade 7 ESL, daily routines — pre-filled prefix sentences + blanks + tips; AI rubric feedback |
 | Full Prompt Practice | `fullpractice` | Grade 6 ESL, speaking activity — blank 5-part form; AI feedback + generated lesson plan; edit & regenerate |
 | Self-Reflection | `selfreflection` | Split screen — 4 multi-select reflection questions (left) + editable prompt & live output (right) |
@@ -86,8 +86,8 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 
 | Step | Grade | Topic | Languages |
 |------|-------|-------|-----------|
-| Pre-Test | Grade 7, B1, 24 students | Daily routines — present simple | English + Spanish |
-| Worked Example | Grade 8, B1, 28 students | Past simple tense | English + Spanish vocabulary list |
+| Pre-Test | Grade 3, varying proficiency, 24 students | Daily routines — present simple | English + Mandarin |
+| Worked Example | Grade 3, varying proficiency, 24 students | Daily routines — present simple | English + Mandarin |
 | Faded Example | Grade 7, A2–B1, 25 students | Daily routines vocabulary | English + conversational Mexican Spanish |
 | Full Practice | Grade 6, A2, 22 students | Speaking — "talking about your weekend" | English + Mandarin |
 | Post-Test | Grade 7, B1, 25 students | Health & wellness (energy drinks source text) | English + Spanish + Mandarin |

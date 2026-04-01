@@ -78,7 +78,7 @@ Pre-Test (2–5 min)
 > Read the scenario below and write the exact prompt you would give to an AI to help you create the lesson plan.
 
 **Scenario (displayed in a highlighted box):**
-> You are preparing a lesson for your Grade 7 ESL class of 24 students. Your class includes Spanish and Mandarin first language speakers at B1 level. You need a 45-minute lesson plan on "describing daily routines" using the present simple tense. The plan should include a short bilingual vocabulary list (English and Spanish). Write the prompt you would give to an AI to create this lesson plan.
+> You are an experienced bilingual (English/Mandarin) educator preparing a 45-minute lesson for a Grade 3 class of 24 students with varying levels of English proficiency. Your core objective is to teach students how to describe daily routines using the present simple tense (specifically, first-person 'I' and third-person 'he/she'). The final lesson plan must include a bilingual learning goal, a list of required materials, and a clear in-class activity complete with an assessment component.
 
 **Interaction:**
 - Large text input area for the learner's prompt
@@ -110,7 +110,7 @@ Pre-Test (2–5 min)
 | Card | Part | What It Means | Example |
 |------|------|--------------|---------|
 | 1 | 🎯 Goal | What you want students to learn | *"Students will practice past simple to describe a past event."* |
-| 2 | 👥 Context | Who your students are | *"Grade 8 ESL, 28 students, B1 level, mixed first language backgrounds (Spanish, Arabic, Mandarin)."* |
+| 2 | 👥 Context | Who your students are | *"Grade 3 class of 24 students. Bilingual with Mandarin first language backgrounds and varying levels of English proficiency."* |
 | 3 | 📋 Task | What you want the AI to create | *"Create a 50-minute lesson plan."* |
 | 4 | ⛔ Constraints | What the AI must follow or avoid | *"No technology needed. Include pair work. Vocabulary at B1 level. Structure: Hook → Teaching Points → Demo → Summary → Call to Action."* |
 | 5 | 📄 Output Format | How the response should be structured | *"Format as a table: Time \| Activity \| Materials \| Teacher Notes."* |
@@ -130,7 +130,7 @@ Pre-Test (2–5 min)
 
 ### Scenario
 
-> A Grade 8 ESL teacher wants to create a 50-minute lesson plan on using past simple tense to describe a past event. The class has 28 students at B1 level with mixed first language backgrounds (Spanish, Arabic, Mandarin). No technology available in the classroom. The lesson should include pair work and a bilingual vocabulary list.
+> An experienced bilingual (English/Mandarin) educator is preparing a 45-minute lesson for a Grade 3 class of 24 students with varying levels of English proficiency. The core objective is teaching students how to describe daily routines using the present simple tense (specifically, first-person "I" and third-person "he/she"). The final lesson plan must include a bilingual learning goal, a list of required materials, and a clear in-class activity complete with an assessment component.
 
 ### Full Prompt (Chunked and Color-Coded)
 
@@ -142,9 +142,9 @@ Pre-Test (2–5 min)
 ---
 
 **👥 Context**
-> "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed first language backgrounds (Spanish, Arabic, and Mandarin). No student has learning support needs."
+> "Grade 3 class of 24 students. The students are bilingual with Mandarin first language backgrounds and have varying levels of English proficiency. Some students may struggle with verb conjugations between first and third person."
 
-*Why this works: Mixed first language backgrounds signal to the AI that instructions should be in English only, and that translation shouldn't be assumed.*
+*Why this works: Specifying the first language background and the specific learning struggle (verb conjugation) tells the AI where students will need extra scaffolding.*
 
 ---
 
@@ -386,8 +386,8 @@ One open-ended prompt writing task, AI-scored against the 4-dimension rubric (ma
 
 | Section | Scenario | Topic |
 |---------|----------|-------|
-| Pre-Test | Grade 7 ESL, 24 students, B1, Spanish + Mandarin first language | Daily routines — lesson plan + bilingual vocabulary |
-| Worked Example | Grade 8 ESL, 28 students, B1, mixed first language | Past simple tense — lesson plan + bilingual vocabulary list |
+| Pre-Test | Grade 3, 24 students, varying proficiency, Mandarin first language | Daily routines — present simple, learning goal, materials, activity |
+| Worked Example | Grade 3, 24 students, varying proficiency, Mandarin first language | Daily routines — present simple, learning goal, materials, activity |
 | Faded Example | Grade 7 ESL, 25 students, A2–B1, Spanish first language | Daily routines vocabulary — bilingual list + communicative activity |
 | Full Prompt Practice | Grade 6 ESL, 22 students, A2, Mandarin + Arabic first language | Communicative speaking — "talking about your weekend" |
 | Post-Test | Grade 7 bilingual, 25 students, B1, Spanish + Mandarin first language | Health & wellness — energy drinks (source text adaptation) |
