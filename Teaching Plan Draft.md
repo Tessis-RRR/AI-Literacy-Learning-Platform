@@ -30,10 +30,11 @@ By the end of this module, teachers will be able to:
 
 | Dimension | Novice (1) | Developing (2) | Proficient (3) |
 |-----------|-----------|----------------|----------------|
-| **1. Procedural Formulation** | Vague request; treats AI as basic translator; no age/level/dialect specified | Identifies audience but lacks strict formatting constraints | Explicitly defines proficiency level, dialects, and pedagogical format |
-| **2. Conceptual Engagement** | Uses AI only to generate final artifacts; no planning | Uses AI for basic supports (simple glossaries) only | Uses AI diagnostically to analyze language, predict difficulty, generate analogies |
-| **3. Assessment & Iteration** | Accepts literal/formal AI output blindly | Notices tone issues; asks for a simple surface fix | Identifies root cause of AI bias; rewrites prompt with negative constraints |
-| **4. Reflective AI Literacy** | Assumes AI understands students' lived experience and slang | Acknowledges odd translations as random glitches | Understands LLMs default to dominant formal norms; prompts actively to counter this |
+| **1. Goal** | Vague or missing explicit learning goals. | Mentions a general topic but lacks specific linguistic outcomes. | Explicitly states what students will learn to do or say. |
+| **2. Context** | Missing grade level, proficiency, or student background details. | Names basic audience demographics but lacks specific learning challenges. | Explicitly states proficiency level, first language backgrounds, and learning struggles. |
+| **3. Task** | Vague request (e.g., "make a lesson"). | Asks for specific output but lacks sub-steps or clear reasoning process. | Tells the AI exactly what to create with clear generation steps. |
+| **4. Constraints** | No limitations or requirements specified. | Provides basic pedagogical structure or generic instructions. | Uses strict negative constraints, specifies dialects and explicit pedagogical rules. |
+| **5. Output Format** | No format requested. | Asks for a general format like "a list". | Explicitly defines the structure of the output. |
 
 **Scoring:** Each dimension scored 1–3. Total max = 15 points.
 

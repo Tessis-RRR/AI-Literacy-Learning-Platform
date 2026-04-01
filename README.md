@@ -73,10 +73,11 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 
 | Dimension | Novice (1) | Developing (2) | Proficient (3) |
 |-----------|-----------|----------------|----------------|
-| Procedural Formulation | Vague; no level/dialect specified | Names audience; lacks format constraints | Explicit level, dialect, lesson structure, format |
-| Conceptual Engagement | Final artifact only | Basic supports (glossary) | Diagnostic use — analyze language, scaffold, analogies |
-| Assessment & Iteration | No negative constraints | Generic correction instructions | Negative constraints to prevent formal/clinical defaults |
-| Reflective AI Literacy | Assumes AI is neutral | Some hedging | Explicitly counters dominant-norm bias |
+| Goal | Vague or missing explicit learning goals. | Mentions a general topic but lacks specific linguistic outcomes. | Explicitly states what students will learn to do or say. |
+| Context | Missing grade level, proficiency, or background. | Names basic demographics but lacks specific learning challenges. | Explicitly states level, first language backgrounds, and struggles. |
+| Task | Vague request (e.g., "make a lesson"). | Asks for specific output but lacks sub-steps or clear reasoning. | Tells the AI exactly what to create with clear generation steps. |
+| Constraints | No limitations or requirements specified. | Provides basic pedagogical structure or generic instructions. | Uses strict negative constraints, specifies dialects and language level. |
+| Output Format | No format requested. | Asks for a general format like "a list". | Explicitly defines the structure of the output. |
 
 **Branching threshold:** Pre-test score ≥ 10/15 → skip Framework Intro (with optional review link)
 
