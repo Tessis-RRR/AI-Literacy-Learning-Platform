@@ -26,7 +26,7 @@ By the end of this module, teachers will be able to:
 
 ---
 
-## Evaluation Rubric (4 Dimensions, Max 12 Points)
+## Evaluation Rubric (5 Dimensions, Max 15 Points)
 
 | Dimension | Novice (1) | Developing (2) | Proficient (3) |
 |-----------|-----------|----------------|----------------|
@@ -35,7 +35,7 @@ By the end of this module, teachers will be able to:
 | **3. Assessment & Iteration** | Accepts literal/formal AI output blindly | Notices tone issues; asks for a simple surface fix | Identifies root cause of AI bias; rewrites prompt with negative constraints |
 | **4. Reflective AI Literacy** | Assumes AI understands students' lived experience and slang | Acknowledges odd translations as random glitches | Understands LLMs default to dominant formal norms; prompts actively to counter this |
 
-**Scoring:** Each dimension scored 1–3. Total max = 12 points.
+**Scoring:** Each dimension scored 1–3. Total max = 15 points.
 
 ---
 
@@ -44,9 +44,9 @@ By the end of this module, teachers will be able to:
 ```
 Pre-Test (2–5 min)
        │
-       ├── Score ≥ 8/12 ──► [Skip notification + optional review link] ──► Worked Example
+       ├── Score ≥ 10/15 ──► [Skip notification + optional review link] ──► Worked Example
        │
-       └── Score < 8/12 ──► Prompt Structure Intro (2–5 min)
+       └── Score < 10/15 ──► Prompt Structure Intro (2–5 min)
                                       │
                                       ▼
                              Worked Example (5 min)
@@ -89,15 +89,15 @@ Pre-Test (2–5 min)
 
 | Score | Action |
 |-------|--------|
-| ≥ 8 / 12 | Display message: *"Great work! Your prompt already shows strong structure. You can jump straight to the worked example. If you'd like to review the 5-Part Prompt Framework first, [click here to take a look]."* → Redirect to Worked Example |
-| < 8 / 12 | Proceed automatically to Prompt Structure Intro |
+| ≥ 10 / 15 | Display message: *"Great work! Your prompt already shows strong structure. You can jump straight to the worked example. If you'd like to review the 5-Part Prompt Framework first, [click here to take a look]."* → Redirect to Worked Example |
+| < 10 / 15 | Proceed automatically to Prompt Structure Intro |
 
 ---
 
 ## Section 2: Prompt Structure Introduction
 
 **Time:** 2–5 minutes
-**Skippable:** Yes — learners who scored ≥ 8/12 on the pre-test skip this section (with optional review link)
+**Skippable:** Yes — learners who scored ≥ 10/15 on the pre-test skip this section (with optional review link)
 **Page Design:** All 5 parts visible on one screen as visual cards; no scrolling required
 
 ### Content Structure (Hook → Teaching Points → Summary)
@@ -344,7 +344,7 @@ Each question has **3 options** (all are valid — they represent different refl
 
 ### Format
 
-One open-ended prompt writing task, AI-scored against the 4-dimension rubric (max 12 pts)
+One open-ended prompt writing task, AI-scored against the 5-dimension rubric (max 15 pts)
 
 ### Instruction Text
 
@@ -361,7 +361,7 @@ One open-ended prompt writing task, AI-scored against the 4-dimension rubric (ma
 
 1. Learner writes their prompt in the text area
 2. Learner clicks "Submit"
-3. AI scores the prompt against the rubric (max 12 pts)
+3. AI scores the prompt against the rubric (max 15 pts)
 4. Learner sees:
    - **Pre-test score vs. Post-test score** (visual comparison — e.g., bar chart or before/after display)
    - **AI feedback** on their post-test prompt (dimension by dimension, constructive)

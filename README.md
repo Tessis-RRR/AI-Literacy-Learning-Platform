@@ -19,9 +19,9 @@ The module follows a single linear flow with branching based on pre-test perform
 ```
 Pre-Test (2–5 min)
     │
-    ├─ Score ≥ 8/12 ──► [Skip intro, optional review link] ──► Worked Example
+    ├─ Score ≥ 10/15 ──► [Skip intro, optional review link] ──► Worked Example
     │
-    └─ Score < 8/12 ──► 5-Part Framework Intro (2–5 min)
+    └─ Score < 10/15 ──► 5-Part Framework Intro (2–5 min)
                                 │
                                 ▼
                         Worked Example (5 min)
@@ -43,7 +43,7 @@ Pre-Test (2–5 min)
 
 | Step | Type | Description |
 |------|------|-------------|
-| Pre-Test | `pretest` | Write one prompt for a scenario; AI scores it 1–12 against the rubric; ≥8 skips intro |
+| Pre-Test | `pretest` | Write one prompt for a scenario; AI scores it 1–15 against the rubric; ≥10 skips intro |
 | Framework Intro | `info` | The 5-part prompt framework (Goal, Context, Task, Constraints, Output Format); skippable |
 | Worked Example | `annotated` | Grade 3, daily routines — full prompt in 5 color-coded annotated blocks with explanations |
 | Faded Example | `faded` | Grade 7 ESL, daily routines — pre-filled prefix sentences + blanks + tips; AI rubric feedback |
@@ -69,7 +69,7 @@ Teachers learn to structure every AI prompt with five parts:
 
 ## Evaluation Rubric
 
-All prompts (pre-test, faded example, full practice, post-test) are scored by AI against a 4-dimension rubric (max 12 points):
+All prompts (pre-test, faded example, full practice, post-test) are scored by AI against a 5-dimension rubric (max 15 points):
 
 | Dimension | Novice (1) | Developing (2) | Proficient (3) |
 |-----------|-----------|----------------|----------------|
@@ -78,7 +78,7 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 | Assessment & Iteration | No negative constraints | Generic correction instructions | Negative constraints to prevent formal/clinical defaults |
 | Reflective AI Literacy | Assumes AI is neutral | Some hedging | Explicitly counters dominant-norm bias |
 
-**Branching threshold:** Pre-test score ≥ 8/12 → skip Framework Intro (with optional review link)
+**Branching threshold:** Pre-test score ≥ 10/15 → skip Framework Intro (with optional review link)
 
 ---
 
