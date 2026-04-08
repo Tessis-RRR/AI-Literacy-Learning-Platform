@@ -610,12 +610,46 @@ function dropAnnotation(ev, expectedType) {
     const key = `${state.moduleId}_${state.stepIndex}`;
     if (!state.annotatedMatches[key]) state.annotatedMatches[key] = [];
     state.annotatedMatches[key].push(draggedType);
-    render();
+
+    // Update the matched block in place without re-rendering the whole page
+    const block = ev.currentTarget.closest('.annotation-block');
+    const stepData = getCurrentStepData();
+    const component = stepData && stepData.components
+      ? stepData.components.find(c => c.type === draggedType)
+      : null;
+    if (block && component) {
+      block.className = `annotation-block ${draggedType} fade-in`;
+      block.innerHTML = `
+        <div class="annotation-header">${componentIcon(draggedType)} ${component.label}</div>
+        <div class="annotation-text">${escHtml(component.text)}</div>
+        <div class="annotation-explain">
+          <div class="ae-icon">💬</div>
+          <div class="ae-text">${component.explanation}</div>
+        </div>`;
+    }
+
+    // Remove the pill from the legend
+    const pill = document.querySelector(`.legend-pill.${draggedType}`);
+    if (pill) pill.remove();
+
+    // Check if all matched — replace legend with success callout and enable Next
+    const legend = document.getElementById('annotated-legend');
+    if (legend && legend.querySelectorAll('.legend-pill').length === 0) {
+      legend.outerHTML = `<div class="callout success"><div class="callout-icon">🎉</div><div class="callout-body">Perfect! You have matched all components correctly.</div></div>`;
+      const nextBtn = document.querySelector('.btn-nav.primary');
+      if (nextBtn) nextBtn.disabled = false;
+    }
   } else {
     const block = ev.currentTarget.closest('.annotation-block');
     block.classList.add('shake');
     setTimeout(() => block.classList.remove('shake'), 400);
   }
+}
+
+function getCurrentStepData() {
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  if (!mod) return null;
+  return mod.steps_data ? mod.steps_data[state.stepIndex] : null;
 }
 
 
