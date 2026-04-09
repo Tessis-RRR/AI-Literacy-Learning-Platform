@@ -59,32 +59,37 @@ IMPORTANT: The learner is completing sentence starters. Even if the full assembl
 If gibberish is detected, return ONLY this and nothing else:
 {"gibberish":true,"scores":{"goal":0,"context":0,"task":0,"constraints":0,"output":0},"total":0,"feedback":{"goal":"","context":"","task":"","constraints":"","output":""},"overall":"Your input does not look like a teaching prompt. Please write a real prompt for the given scenario."}
 
-STEP 2 — If it is a genuine attempt (even a weak one), score each of the 5 dimensions of the prompt framework 1–3:
+STEP 2 — If it is a genuine attempt (even a weak one), score each of the 5 dimensions using the rubric below. Each dimension is scored 0–3.
 
-DIMENSION 1 — Goal:
-1: Vague or missing explicit learning goals.
-2: Mentions a general topic but lacks specific communicative or linguistic outcomes.
-3: Explicitly states what students will learn to do or say by the end of the lesson.
+DIMENSION 1 — Goal (Learning Objective Clarity):
+3 (Proficient): Specifies what students will learn AND includes a measurable action verb (e.g., describe, identify, write) AND includes content/topic AND implies or states success criteria or outcome.
+2 (Developing): States a learning goal with topic + general action, BUT action is vague (e.g., "understand", "learn") OR no clear success indicator.
+1 (Beginning): Mentions a topic only (e.g., "present simple tense") with no clear learning action.
+0: No learning goal present.
 
-DIMENSION 2 — Context:
-1: Missing grade level, proficiency level, or student background details.
-2: Names basic audience demographics but lacks specific learning challenges or first language backgrounds.
-3: Explicitly states proficiency level, specific first language backgrounds, and learning context or struggles.
+DIMENSION 2 — Context (Student & Classroom Information):
+3 (Proficient): Specifies grade level or age group AND language proficiency level AND at least ONE concrete student characteristic (prior knowledge, common errors, learning needs, or classroom setting constraint).
+2 (Developing): Includes grade level AND/OR proficiency level, BUT no specific student characteristics.
+1 (Beginning): Vague reference to students (e.g., "middle school students") with no proficiency or detail.
+0: No context provided.
 
-DIMENSION 3 — Task:
-1: Vague request (e.g., "make a lesson").
-2: Asks for a specific output (e.g., "45-minute lesson plan") but lacks sub-steps or clear reasoning process.
-3: Tells the AI exactly what to create, breaking the task into clear analytical or generation steps.
+DIMENSION 3 — Task (Instructional Task Clarity):
+3 (Proficient): Clearly specifies what the teacher should produce AND includes time structure or scope AND lists at least TWO task components (activities, materials, steps, or assessment).
+2 (Developing): Specifies the task (e.g., lesson plan) BUT missing time OR only ONE component listed.
+1 (Beginning): Task is vague (e.g., "help me teach…") with no structure or components.
+0: No clear task.
 
-DIMENSION 4 — Constraints:
-1: No limitations or requirements specified.
-2: Provides basic pedagogical structure or generic "make it simpler" instructions.
-3: Uses strict negative constraints, specifies regional dialects, language level, and explicit pedagogical rules (e.g., "Do NOT use academic register").
+DIMENSION 4 — Constraints (Guidance & Boundaries):
+3 (Proficient): Includes at least TWO types of constraints from: language level constraints, pedagogical constraints, format constraints, content constraints.
+2 (Developing): Includes ONE constraint only OR constraints are vague (e.g., "make it engaging").
+1 (Beginning): Very general preference only (e.g., "good lesson") with no actionable constraint.
+0: No constraints.
 
-DIMENSION 5 — Output Format:
-1: No format requested.
-2: Asks for a general format like "a list" or "bullet points".
-3: Explicitly defines the structure of the output (e.g., "Format as a table with columns: Time | Activity | Materials").
+DIMENSION 5 — Output Format (Response Structure Specification):
+3 (Proficient): Specifies output structure (e.g., sections, headings) AND format type (bullet points, table, step-by-step) AND clearly indicates what elements must be included (e.g., goal, materials, activity).
+2 (Developing): Mentions elements to include (e.g., goal, materials) BUT no clear formatting instruction.
+1 (Beginning): Very general request (e.g., "give me a lesson plan") with no structure specified.
+0: No output expectation.
 
 Return ONLY this JSON structure:
 {"scores":{"goal":1,"context":1,"task":1,"constraints":1,"output":1},"total":5,"feedback":{"goal":"specific feedback","context":"specific feedback","task":"specific feedback","constraints":"specific feedback","output":"specific feedback"},"overall":"1-2 sentence summary"}`;
