@@ -22,7 +22,7 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const message = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: process.env.GENERATE_MODEL || 'gpt-4o',
       max_tokens: 1500,
       messages: [
         { role: 'system', content: systemPrompt || 'You are a helpful AI assistant for language teachers. Provide clear, practical, classroom-ready responses.' },
@@ -37,65 +37,114 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
+function extractFeatures(prompt) {
+  const t = prompt || '';
+  const hasGrade        = /grade\s?\d+|\d+(st|nd|rd|th)\s+grade|year\s?\d+/i.test(t);
+  const hasAge          = /\d+\s*[-–]?\s*year[s]?\s*[- ]?old|\bage\s*\d+/i.test(t);
+  const hasProficiency  = /\b(beginner[s]?|elementary|pre[-\s]?intermediate|intermediate|upper[-\s]?intermediate|advanced|A1|A2|B1|B2|C1|C2)\b/i.test(t);
+  const hasTime         = /\d+\s*[-–]?\s*(minute[s]?|min[s]?|hour[s]?)/i.test(t);
+  const hasMaterials    = /\bmaterials?\b/i.test(t);
+  const hasActivity     = /\bactivit(y|ies)\b/i.test(t);
+  const hasAssessment   = /\b(assess(ment)?|evaluat(e|ion)|quiz|test)\b/i.test(t);
+  const hasSteps        = /\bstep[s]?\b/i.test(t);
+  const hasActionVerb   = /\b(describe|identify|write|produce|use|create|list|match|compare|explain|demonstrate|apply|construct|distinguish|categorize|label|select|arrange|complete|respond|perform|discuss|present|ask|answer|form|build)\b/i.test(t);
+  const hasSuccessCriteria = /\bby the end\b|\bwill be able to\b|\bcan correctly\b|\bsuccessfully\b/i.test(t);
+  const hasBullets      = /bullet[s]?|\n\s*[-•*]\s/i.test(t);
+  const hasTable        = /\btable\b|\bcolumns?\b/i.test(t);
+  const hasHeadings     = /\bsection[s]?\b|\bheading[s]?\b|\bpart[s]?\b/i.test(t);
+
+  const componentCount = [hasMaterials, hasActivity, hasAssessment, hasSteps].filter(Boolean).length;
+
+  return {
+    has_grade_or_age:       hasGrade || hasAge,
+    has_proficiency:        hasProficiency,
+    has_time:               hasTime,
+    has_action_verb:        hasActionVerb,
+    has_success_criteria:   hasSuccessCriteria,
+    has_materials:          hasMaterials,
+    has_activity:           hasActivity,
+    has_assessment:         hasAssessment,
+    has_steps:              hasSteps,
+    component_count:        componentCount,
+    has_bullets:            hasBullets,
+    has_table:              hasTable,
+    has_headings:           hasHeadings,
+  };
+}
+
 app.post('/api/evaluate', async (req, res) => {
   try {
     const { prompt, userTypedParts } = req.body;
     if (!process.env.OPENAI_API_KEY) {
       return res.status(503).json({ error: 'API key not configured.' });
     }
+
+    const features = extractFeatures(prompt);
+    const featuresText = Object.entries(features)
+      .map(([k, v]) => `- ${k}: ${v}`)
+      .join('\n');
+
     const sysPrompt = `You evaluate AI prompts written by language teachers. Return ONLY valid JSON with no markdown or extra text.
 
-STEP 1 — GIBBERISH CHECK (do this first):
-When evaluating LEARNER-TYPED parts specifically, flag as gibberish if ANY of the following apply:
-- A single character, digit, or number (e.g. "1", "a", "123")
-- Random letters or keyboard mashing (e.g. "asdf", "qwerty", "zzz")
-- A word or phrase completely unrelated to teaching, language learning, or the scenario (e.g. "pizza", "hello", "idk")
-- Fewer than 4 meaningful words that form no coherent teaching intent
-- Repeating the same character or word (e.g. "aaa", "test test test")
-- Anything that is clearly not a genuine attempt to complete a teaching prompt
+STEP 1 — GIBBERISH CHECK (STRICT)
+Evaluate ONLY the learner-typed portion.
+Mark as gibberish ONLY if:
+- Input is random characters or keyboard mashing (e.g., "asdf", "qwerty")
+- Input is clearly unrelated to teaching or the scenario (e.g., "pizza", "hello", "idk")
+- Input has no interpretable teaching intent
+DO NOT use word count as a rule.
 
-IMPORTANT: The learner is completing sentence starters. Even if the full assembled sentence looks grammatical, evaluate ONLY whether the learner's typed completion is a genuine, meaningful teaching-related response — not just any word that fits grammatically.
+If gibberish is detected, return ONLY:
+{"gibberish":true,"scores":{"goal":0,"context":0,"task":0,"constraints":0,"output":0},"total":0,"feedback":{"goal":"","context":"","task":"","constraints":"","output":""},"overall":"Your input does not look like a teaching prompt. Please write a meaningful teaching prompt based on the scenario."}
 
-If gibberish is detected, return ONLY this and nothing else:
-{"gibberish":true,"scores":{"goal":0,"context":0,"task":0,"constraints":0,"output":0},"total":0,"feedback":{"goal":"","context":"","task":"","constraints":"","output":""},"overall":"Your input does not look like a teaching prompt. Please write a real prompt for the given scenario."}
+STEP 2 — CONDITION CHECK (MANDATORY, NO SKIPPING)
+The rule engine has already detected these features from the prompt — trust them for detection; use your judgment only for interpretation:
 
-STEP 2 — If it is a genuine attempt (even a weak one), score each of the 5 dimensions using the rubric below. Each dimension is scored 0–3.
+DETECTED FEATURES:
+${featuresText}
 
-DIMENSION 1 — Goal (Learning Objective Clarity):
-3 (Proficient): Specifies what students will learn AND includes a measurable action verb (e.g., describe, identify, write) AND includes content/topic AND implies or states success criteria or outcome.
-2 (Developing): States a learning goal with topic + general action, BUT action is vague (e.g., "understand", "learn") OR no clear success indicator.
-1 (Beginning): Mentions a topic only (e.g., "present simple tense") with no clear learning action.
-0: No learning goal present.
+Use these features as ground truth for binary conditions. Do NOT re-detect what is already flagged.
 
-DIMENSION 2 — Context (Student & Classroom Information):
-3 (Proficient): Specifies grade level or age group AND language proficiency level AND at least ONE concrete student characteristic (prior knowledge, common errors, learning needs, or classroom setting constraint).
-2 (Developing): Includes grade level AND/OR proficiency level, BUT no specific student characteristics.
-1 (Beginning): Vague reference to students (e.g., "middle school students") with no proficiency or detail.
-0: No context provided.
+STEP 3 — SCORE EACH DIMENSION using ONLY the condition checks below:
 
-DIMENSION 3 — Task (Instructional Task Clarity):
-3 (Proficient): Clearly specifies what the teacher should produce AND includes time structure or scope AND lists at least TWO task components (activities, materials, steps, or assessment).
-2 (Developing): Specifies the task (e.g., lesson plan) BUT missing time OR only ONE component listed.
-1 (Beginning): Task is vague (e.g., "help me teach…") with no structure or components.
-0: No clear task.
+DIMENSION 1 — Goal
+Conditions: has_learning_target, has_action_verb (NOT "learn"/"understand"/"know"), has_topic, has_success_criteria
+3 = all TRUE | 2 = learning target + topic TRUE but missing measurable verb OR success criteria | 1 = topic only | 0 = none
 
-DIMENSION 4 — Constraints (Guidance & Boundaries):
-3 (Proficient): Includes at least TWO types of constraints from: language level constraints, pedagogical constraints, format constraints, content constraints.
-2 (Developing): Includes ONE constraint only OR constraints are vague (e.g., "make it engaging").
-1 (Beginning): Very general preference only (e.g., "good lesson") with no actionable constraint.
-0: No constraints.
+DIMENSION 2 — Context
+Conditions: has_grade_or_age, has_proficiency, has_specific_student_detail (prior knowledge / difficulty / learning need / classroom condition — interpret from prompt)
+3 = all TRUE | 2 = grade/proficiency present but no student detail | 1 = vague student mention only | 0 = none
 
-DIMENSION 5 — Output Format (Response Structure Specification):
-3 (Proficient): Specifies output structure (e.g., sections, headings) AND format type (bullet points, table, step-by-step) AND clearly indicates what elements must be included (e.g., goal, materials, activity).
-2 (Developing): Mentions elements to include (e.g., goal, materials) BUT no clear formatting instruction.
-1 (Beginning): Very general request (e.g., "give me a lesson plan") with no structure specified.
-0: No output expectation.
+DIMENSION 3 — Task
+Conditions: has_clear_product, has_time (use has_time from features), component_count ≥ 2 (use component_count from features)
+3 = all TRUE | 2 = product present but missing time OR component_count < 2 | 1 = vague task | 0 = none
 
-Return ONLY this JSON structure:
-{"scores":{"goal":1,"context":1,"task":1,"constraints":1,"output":1},"total":5,"feedback":{"goal":"specific feedback","context":"specific feedback","task":"specific feedback","constraints":"specific feedback","output":"specific feedback"},"overall":"1-2 sentence summary"}`;
+DIMENSION 4 — Constraints
+Count ONLY actionable constraints. Ignore vague phrases like "engaging", "clear", "good".
+Types: language level, pedagogical, format, content constraints — interpret from prompt.
+3 = ≥2 actionable constraints | 2 = 1 actionable constraint | 1 = vague preference only | 0 = none
+
+DIMENSION 5 — Output Format
+Conditions: has_structure (use has_headings), has_format_type (use has_bullets or has_table), has_required_elements (interpret from prompt)
+3 = all TRUE | 2 = elements listed but no format type | 1 = general request only | 0 = none
+
+STEP 4 — SCORING RULES
+- Scores MUST come ONLY from condition checks above
+- Do NOT use general impressions
+- If unsure between two scores → ALWAYS choose the LOWER score
+
+STEP 5 — OVERALL FEEDBACK
+- Maximum 100 words total
+- Part 1: what the learner did well (reference actual content from their prompt)
+- Part 2: start with "BUT" — identify 1–2 weakest dimensions, name EXACT missing elements (e.g., "you did not specify time")
+- Keep all feedback field values as empty strings
+
+Return ONLY this JSON:
+{"scores":{"goal":1,"context":1,"task":1,"constraints":1,"output":1},"total":5,"feedback":{"goal":"","context":"","task":"","constraints":"","output":""},"overall":"..."}`;
 
     const message = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: process.env.EVAL_MODEL || 'gpt-4o',
+      temperature: 0,
       max_tokens: 700,
       messages: [
         { role: 'system', content: sysPrompt },
