@@ -19,6 +19,10 @@ const state = {
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
+  fadedActiveField: 0,     // index of currently active field
+  fadedFieldEvals: {},     // { goal: "feedback text", ... }
+  fadedFieldScores: {},    // { goal: 2, ... }
+  fadedFieldDone: {},      // { goal: true } — field has been evaluated at least once
   // Annotated
   annotatedMatches: {},
   annotatedOrder: {},
@@ -867,32 +871,73 @@ function renderTransfer(step) {
 
 /* ── FADED EXAMPLE ──────────────────────────────────────── */
 function renderFaded(step) {
-  const evalResult = state.fadedEval;
+  const activeIdx = state.fadedActiveField;
 
-  const fields = step.fields.map(f => {
+  const fields = step.fields.map((f, idx) => {
     const completion = state.fadedValues[f.key] || '';
-    const hasPrefix = !!f.prefix;
+    const feedback   = state.fadedFieldEvals[f.key] || '';
+    const done       = !!state.fadedFieldDone[f.key];
+    const isPast     = idx < activeIdx;
+    const isFuture   = idx > activeIdx;
+
+    const pillHtml = `<span class="legend-pill ${f.type}">${componentIcon(f.type)} ${f.label}</span>`;
+
+    if (isFuture) {
+      return `
+        <div class="faded-field faded-field--locked">
+          <div class="faded-field-label">${pillHtml}</div>
+          <div class="faded-locked-placeholder">${escHtml(f.placeholder)}</div>
+        </div>`;
+    }
+
+    if (isPast) {
+      const fullText = f.prefix ? `${f.prefix} ${completion}` : completion;
+      return `
+        <div class="faded-field faded-field--done">
+          <div class="faded-field-label">${pillHtml}</div>
+          <div class="faded-done-text">${escHtml(fullText)}</div>
+        </div>`;
+    }
+
+    // Active field
+    const evalBtn = `
+      <button class="btn-eval-part" id="faded-eval-btn-${f.key}"
+        onclick="evaluateFadedPart('${f.key}', ${idx})"
+        ${completion.trim() ? '' : 'disabled'}>
+        Evaluate →
+      </button>`;
+
+    const score = state.fadedFieldScores[f.key];
+    const scoreHtml = feedback ? (() => {
+      const s = score ?? 0;
+      const color = s >= 3 ? '#16a34a' : s === 2 ? '#84cc16' : s === 1 ? '#f97316' : '#dc2626';
+      const label = s >= 3 ? 'Proficient' : s === 2 ? 'Developing' : s === 1 ? 'Beginning' : 'Not met';
+      return `<span class="faded-score-badge" style="background:${color}">${s}/3 · ${label}</span>`;
+    })() : '';
+
+    const feedbackHtml = feedback ? `
+      <div class="faded-part-feedback">${scoreHtml} ${highlightBut(feedback)}</div>` : '';
+
+    const nextBtn = done ? `
+      <button class="btn-next-part" onclick="nextFadedPart(${idx}, ${step.fields.length})">
+        ${idx === step.fields.length - 1 ? 'See Full Prompt →' : 'Next Part →'}
+      </button>` : '';
 
     return `
-      <div class="faded-field">
-        <div class="faded-field-label">
-          <span class="legend-pill ${f.type}">${componentIcon(f.type)} ${f.label}</span>
-        </div>
-        ${hasPrefix ? `
-          <div class="faded-prefix">${escHtml(f.prefix)}</div>
-          <textarea class="faded-completion" id="faded-${f.key}"
-            placeholder="${escAttr(f.placeholder)}"
-            oninput="updateFaded('${f.key}', this.value)">${escHtml(completion)}</textarea>
-        ` : `
-          <textarea class="faded-full" id="faded-${f.key}"
-            placeholder="${escAttr(f.placeholder)}"
-            oninput="updateFaded('${f.key}', this.value)">${escHtml(completion)}</textarea>
-        `}
+      <div class="faded-field faded-field--active">
+        <div class="faded-field-label">${pillHtml}</div>
+        ${f.prefix ? `<div class="faded-prefix">${escHtml(f.prefix)}</div>` : ''}
+        <textarea class="faded-completion" id="faded-${f.key}"
+          placeholder="${escAttr(f.placeholder)}"
+          oninput="updateFadedPart('${f.key}', this.value)">${escHtml(completion)}</textarea>
         <div class="faded-tip">💡 ${f.tip}</div>
+        <div class="faded-part-actions">
+          ${evalBtn}
+          ${nextBtn}
+        </div>
+        ${feedbackHtml}
       </div>`;
   }).join('');
-
-  const assembledPrompt = assembleFadedPrompt(step);
 
   return `
     <div class="content-card">
@@ -902,37 +947,130 @@ function renderFaded(step) {
       </div>
       <div class="callout info" style="margin-top:1rem">
         <div class="callout-icon">✏️</div>
-        <div class="callout-body">Complete the fields below using the scenario above. Pre-filled parts are already written for you — just add what's missing.</div>
+        <div class="callout-body">Complete each part one at a time. Write your response, click <strong>Evaluate</strong> for feedback, revise as many times as you like, then move to the next part.</div>
       </div>
       <div class="faded-form">${fields}</div>
+    </div>`;
+}
 
-      <div style="margin-top:1.5rem">
-        <div class="builder-preview-label">📋 Your assembled prompt</div>
-        <div class="full-prompt-preview ${assembledPrompt ? '' : 'empty'}" id="faded-preview">
-          ${assembledPrompt ? escHtml(assembledPrompt) : 'Fill in the fields above to see your prompt take shape…'}
-        </div>
+function updateFadedPart(key, value) {
+  state.fadedValues[key] = value;
+  const btn = document.getElementById(`faded-eval-btn-${key}`);
+  if (btn) btn.disabled = !value.trim();
+}
+
+async function evaluateFadedPart(key, idx) {
+  const mod  = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+
+  const field      = step.fields[idx];
+  const fieldText  = (state.fadedValues[key] || '').trim();
+  if (!fieldText) return;
+
+  // Client-side gibberish check on user-typed text only (not prefix)
+  const isGibberish = (
+    fieldText.length <= 2 ||
+    /^\d+$/.test(fieldText) ||
+    /^(.)\1+$/i.test(fieldText) ||
+    /^[^a-zA-Z]*$/.test(fieldText) ||
+    (/^[a-zA-Z0-9]+$/.test(fieldText) && fieldText.split(/\s+/).length < 3 && fieldText.length < 15) ||
+    /^(asdf|qwerty|zxcv|test|hello|hi|yes|no|idk|lol|abc|aaa|bbb|pizza|ok)\b/i.test(fieldText)
+  );
+
+  if (isGibberish) {
+    state.fadedFieldEvals[key]  = 'Please write a real teaching prompt for this part.';
+    state.fadedFieldScores[key] = 0;
+    state.fadedFieldDone[key]   = true;
+    document.getElementById('app-main').innerHTML = renderStep();
+    return;
+  }
+
+  const btn = document.getElementById(`faded-eval-btn-${key}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `Evaluating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
+  }
+
+  try {
+    const result = await API.evaluatePart(key, fieldText, field.prefix || '');
+    state.fadedFieldEvals[key]   = result.feedback;
+    state.fadedFieldScores[key]  = result.score;
+    state.fadedFieldDone[key]    = true;
+  } catch (err) {
+    state.fadedFieldEvals[key]   = 'Could not evaluate. Please check your connection.';
+    state.fadedFieldScores[key]  = 0;
+    state.fadedFieldDone[key]    = true;
+  }
+
+  document.getElementById('app-main').innerHTML = renderStep();
+}
+
+function nextFadedPart(idx, total) {
+  const mod  = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+
+  const cards = document.querySelectorAll('.faded-field');
+
+  // Convert current active card to "done" state in place
+  const currentField = step.fields[idx];
+  const currentCard  = cards[idx];
+  if (currentCard && currentField) {
+    const completion = (state.fadedValues[currentField.key] || '').trim();
+    const fullText   = currentField.prefix ? `${currentField.prefix} ${completion}` : completion;
+    currentCard.className = 'faded-field faded-field--done';
+    currentCard.innerHTML = `
+      <div class="faded-field-label">
+        <span class="legend-pill ${currentField.type}">${componentIcon(currentField.type)} ${currentField.label}</span>
       </div>
-      <button class="btn-generate" id="faded-btn" style="margin-top:1rem"
-        onclick="submitFaded()" ${assembledPrompt ? '' : 'disabled'}>
-        Submit for Feedback →
-      </button>
-    </div>
+      <div class="faded-done-text">${escHtml(fullText)}</div>`;
+  }
 
-    ${evalResult ? `
-      <div class="content-card">
-        ${renderEvalResult(evalResult)}
-        ${!evalResult.gibberish && state.fadedGenerated ? `
-          <div style="margin-top:1.5rem">
-            <div class="practice-panels-header">📄 AI-Generated Lesson Plan</div>
-            <div class="response-body" style="margin-top:0">${escHtml(state.fadedGenerated)}</div>
-          </div>` : ''}
-        <div class="regen-notice" style="margin-top:1.5rem">
-          🔄 <strong>Want to improve your score?</strong> Edit any field above and click "Resubmit for Feedback" to see how changes affect the evaluation.
+  state.fadedActiveField = idx + 1;
+
+  if (idx < total - 1) {
+    // Unlock next card in place
+    const nextField = step.fields[idx + 1];
+    const nextCard  = cards[idx + 1];
+    if (nextCard && nextField) {
+      const completion = state.fadedValues[nextField.key] || '';
+      const feedback   = state.fadedFieldEvals[nextField.key] || '';
+      const done       = !!state.fadedFieldDone[nextField.key];
+      const score      = state.fadedFieldScores[nextField.key];
+
+      const scoreHtml = feedback ? (() => {
+        const s = score ?? 0;
+        const color = s >= 3 ? '#16a34a' : s === 2 ? '#84cc16' : s === 1 ? '#f97316' : '#dc2626';
+        const label = s >= 3 ? 'Proficient' : s === 2 ? 'Developing' : s === 1 ? 'Beginning' : 'Not met';
+        return `<span class="faded-score-badge" style="background:${color}">${s}/3 · ${label}</span>`;
+      })() : '';
+
+      nextCard.className = 'faded-field faded-field--active';
+      nextCard.innerHTML = `
+        <div class="faded-field-label">
+          <span class="legend-pill ${nextField.type}">${componentIcon(nextField.type)} ${nextField.label}</span>
         </div>
-        <button class="btn-generate" style="margin-top:1rem;background:var(--text-secondary)" onclick="submitFaded()">
-          Resubmit for Feedback →
-        </button>
-      </div>` : ''}`;
+        ${nextField.prefix ? `<div class="faded-prefix">${escHtml(nextField.prefix)}</div>` : ''}
+        <textarea class="faded-completion" id="faded-${nextField.key}"
+          placeholder="${escAttr(nextField.placeholder)}"
+          oninput="updateFadedPart('${nextField.key}', this.value)">${escHtml(completion)}</textarea>
+        <div class="faded-tip">💡 ${escHtml(nextField.tip)}</div>
+        <div class="faded-part-actions">
+          <button class="btn-eval-part" id="faded-eval-btn-${nextField.key}"
+            onclick="evaluateFadedPart('${nextField.key}', ${idx + 1})"
+            ${completion.trim() ? '' : 'disabled'}>
+            ${done ? 'Try Again' : 'Evaluate →'}
+          </button>
+          ${done ? `<button class="btn-next-part" onclick="nextFadedPart(${idx + 1}, ${total})">
+            ${idx + 1 === total - 1 ? 'See Full Prompt →' : 'Next Part →'}
+          </button>` : ''}
+        </div>
+        ${feedback ? `<div class="faded-part-feedback">${scoreHtml} ${highlightBut(feedback)}</div>` : ''}`;
+
+      nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
 }
 
 function assembleFadedPrompt(step) {
@@ -943,91 +1081,6 @@ function assembleFadedPrompt(step) {
     return completion;
   }).filter(Boolean);
   return parts.join('\n\n');
-}
-
-function updateFaded(key, value) {
-  state.fadedValues[key] = value;
-  const mod = MODULES.find(m => m.id === state.moduleId);
-  const step = mod?.steps_data[state.stepIndex];
-  const assembled = assembleFadedPrompt(step);
-
-  const previewEl = document.getElementById('faded-preview');
-  if (previewEl) {
-    previewEl.textContent = assembled || 'Fill in the fields above to see your prompt take shape…';
-    previewEl.className = `full-prompt-preview ${assembled ? '' : 'empty'}`;
-  }
-
-  const btn = document.getElementById('faded-btn');
-  if (btn) btn.disabled = !assembled;
-}
-
-async function submitFaded() {
-  const mod = MODULES.find(m => m.id === state.moduleId);
-  const step = mod?.steps_data[state.stepIndex];
-  if (!step) return;
-
-  const prompt = assembleFadedPrompt(step);
-  if (!prompt.trim()) return;
-
-  // Extract only user-typed completions (not pre-filled prefixes) for gibberish check
-  const typedValues = step.fields
-    .map(f => (state.fadedValues[f.key] || '').trim())
-    .filter(Boolean);
-  const userTypedParts = typedValues.join('\n');
-
-  // Client-side pre-check: catch obviously trivial inputs instantly
-  const isObviouslyTrivial = typedValues.some(v => {
-    if (v.length <= 2) return true;                         // single char or 2-char
-    if (/^\d+$/.test(v)) return true;                      // only digits
-    if (/^(.)\1+$/.test(v)) return true;                   // repeated single char e.g. "aaa"
-    if (v.split(/\s+/).length < 3 && /^[a-zA-Z0-9]+$/.test(v)) return true; // 1-2 plain words
-    return false;
-  });
-
-  if (isObviouslyTrivial) {
-    state.fadedEval = {
-      gibberish: true, total: 0,
-      scores: { procedural: 0, conceptual: 0, iteration: 0, literacy: 0 },
-      feedback: { procedural: '', conceptual: '', iteration: '', literacy: '' },
-      overall: 'Your input does not look like a teaching prompt. Please write a real prompt for the given scenario.'
-    };
-    state.fadedGenerated = '';
-    document.getElementById('app-main').innerHTML = renderStep();
-    return;
-  }
-
-  const btn = document.getElementById('faded-btn');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `Evaluating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
-  }
-
-  try {
-    state.fadedEval = await API.evaluate(prompt, userTypedParts || null);
-  } catch (err) {
-    state.fadedEval = {
-      error: true, total: 0,
-      scores: { goal: 0, context: 0, task: 0, constraints: 0, output: 0 },
-      feedback: { goal: err.message, context: '', task: '', constraints: '', output: '' },
-      overall: 'Could not evaluate. Please check your connection.'
-    };
-  }
-
-  // Only generate AI output if not gibberish
-  if (!state.fadedEval.gibberish) {
-    if (btn) {
-      btn.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
-    }
-    try {
-      state.fadedGenerated = await API.generate(prompt, step.systemPrompt);
-    } catch (err) {
-      state.fadedGenerated = `Error generating output: ${err.message}`;
-    }
-  } else {
-    state.fadedGenerated = '';
-  }
-
-  document.getElementById('app-main').innerHTML = renderStep();
 }
 
 /* ── FULL PRACTICE ──────────────────────────────────────── */

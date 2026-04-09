@@ -164,6 +164,59 @@ Return ONLY this JSON:
   }
 });
 
+app.post('/api/evaluate-part', async (req, res) => {
+  try {
+    const { dimension, fieldText, prefix } = req.body;
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'API key not configured.' });
+    }
+
+    const rubrics = {
+      goal:        'Does it state what students will learn, use a measurable action verb (not "understand"/"learn"), name a topic, and imply success criteria?',
+      context:     'Does it specify grade/age, proficiency level, and at least one concrete student detail (prior knowledge, difficulty, learning need)?',
+      task:        'Does it clearly state what to produce, include a time/duration, and mention at least two components (activities, materials, steps, or assessment)?',
+      constraints: 'Does it include at least one actionable constraint — language level, pedagogical rule, format rule, or content boundary? Ignore vague words like "engaging".',
+      output:      'Does it specify structure (sections/headings), a format type (bullets/table/step-by-step), and name the required elements?'
+    };
+
+    const fullText = prefix ? `${prefix} ${fieldText}` : fieldText;
+    const rubric = rubrics[dimension] || 'Evaluate quality and specificity.';
+
+    const sysPrompt = `You give brief feedback on one part of a language teacher's AI prompt.
+Dimension: ${dimension}
+Rubric question: ${rubric}
+
+Scoring (0–3):
+3 = all rubric conditions met
+2 = partially met (missing one key element)
+1 = vague or minimal attempt
+0 = nothing relevant or gibberish
+
+Rules:
+- Return ONLY valid JSON, no markdown.
+- "feedback": max 20 words — one sentence on what is good, then "BUT" + one concrete actionable improvement naming the exact missing element.
+- "score": integer 0–3.
+- If gibberish: {"score":0,"feedback":"Please write a real teaching prompt for this part."}`;
+
+    const message = await client.chat.completions.create({
+      model: process.env.EVAL_MODEL || 'gpt-4o',
+      temperature: 0,
+      max_tokens: 80,
+      messages: [
+        { role: 'system', content: sysPrompt },
+        { role: 'user', content: `Evaluate this ${dimension} part:\n"${fullText}"` }
+      ]
+    });
+
+    const raw = message.choices[0].message.content.trim();
+    const result = JSON.parse(raw);
+    res.json({ feedback: result.feedback, score: result.score });
+  } catch (error) {
+    console.error('Evaluate-part error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

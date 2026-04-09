@@ -23,5 +23,16 @@ const API = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Evaluation failed');
     return data;
+  },
+
+  async evaluatePart(dimension, fieldText, prefix = '') {
+    const res = await fetch('/api/evaluate-part', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dimension, fieldText, prefix })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Evaluation failed');
+    return { feedback: data.feedback, score: data.score };
   }
 };

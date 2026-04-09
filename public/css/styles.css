@@ -1956,6 +1956,108 @@ input {
   border-radius: var(--radius-sm);
   padding: 1rem;
   background: var(--surface);
+  margin-bottom: 0.75rem;
+  transition: opacity 0.2s;
+}
+
+.faded-field--active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+}
+
+.faded-field--locked {
+  opacity: 0.4;
+  pointer-events: none;
+  background: #f3f4f6;
+}
+
+.faded-field--done {
+  background: #f9fafb;
+  border-color: var(--border);
+}
+
+.faded-locked-placeholder {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 0.4rem 0;
+}
+
+.faded-done-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 0.25rem 0;
+}
+
+.faded-part-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.btn-eval-part {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-eval-part:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-eval-part:not(:disabled):hover {
+  background: var(--primary-dark, #4338ca);
+}
+
+.btn-next-part {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-next-part:hover {
+  background: #15803d;
+}
+
+.faded-part-feedback {
+  margin-top: 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg, #f9fafb);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 6px 6px 0;
+  color: var(--text-primary, #111827);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.faded-score-badge {
+  display: inline-block;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .faded-field-label {
