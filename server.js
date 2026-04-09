@@ -25,7 +25,7 @@ app.post('/api/generate', async (req, res) => {
       model: process.env.GENERATE_MODEL || 'gpt-4o',
       max_tokens: 1500,
       messages: [
-        { role: 'system', content: systemPrompt || 'You are a helpful AI assistant for language teachers. Provide clear, practical, classroom-ready responses.' },
+        { role: 'system', content: (systemPrompt || 'You are a helpful AI assistant for language teachers. Provide clear, practical, classroom-ready responses.') + '\n\nIMPORTANT: Do not use markdown formatting. Do not use **, *, #, ##, or any markdown symbols. Use plain text only. Use line breaks and indentation to structure your output.' },
         { role: 'user', content: prompt }
       ]
     });
