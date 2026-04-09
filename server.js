@@ -91,8 +91,15 @@ DIMENSION 5 — Output Format (Response Structure Specification):
 1 (Beginning): Very general request (e.g., "give me a lesson plan") with no structure specified.
 0: No output expectation.
 
+OVERALL FEEDBACK FORMAT RULES (strictly follow):
+- Write the "overall" field in TWO parts, total under 100 words.
+- Part 1: specifically describe what the learner did well, referencing actual content from their prompt.
+- Part 2: start with the word "BUT" followed by specific, actionable improvements for the 1–2 weakest dimensions, referencing what is missing or vague in their prompt.
+- Be concrete — name the exact missing element (e.g., "you did not specify proficiency level" not "add more context").
+- Keep the feedback field values as empty strings — they are not displayed.
+
 Return ONLY this JSON structure:
-{"scores":{"goal":1,"context":1,"task":1,"constraints":1,"output":1},"total":5,"feedback":{"goal":"specific feedback","context":"specific feedback","task":"specific feedback","constraints":"specific feedback","output":"specific feedback"},"overall":"1-2 sentence summary"}`;
+{"scores":{"goal":1,"context":1,"task":1,"constraints":1,"output":1},"total":5,"feedback":{"goal":"","context":"","task":"","constraints":"","output":""},"overall":"overall feedback here"}`;
 
     const message = await client.chat.completions.create({
       model: 'gpt-4o',
