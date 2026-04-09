@@ -456,17 +456,26 @@ function renderEvalResult(evalResult) {
     constraints: 'Constraints',
     output: 'Output Format'
   };
-  const scoreColor = s => s >= 3 ? 'dim-proficient' : s === 2 ? 'dim-developing' : 'dim-novice';
-  const scoreText = s => s >= 3 ? 'Proficient' : s === 2 ? 'Developing' : 'Novice';
+  const barColor = s => {
+    if (s === 0) return '#dc2626';
+    if (s === 1) return '#f97316';
+    if (s === 2) return '#84cc16';
+    return '#16a34a';
+  };
 
-  const dimCards = ['goal', 'context', 'task', 'constraints', 'output'].map(key => `
-    <div class="rubric-dim">
-      <div class="rubric-dim-header">
-        <span class="rubric-dim-name">${dimLabels[key]}</span>
-        <span class="dim-score ${scoreColor(evalResult.scores[key])}">${evalResult.scores[key]}/3 · ${scoreText(evalResult.scores[key])}</span>
-      </div>
-      <div class="rubric-dim-feedback">${escHtml(evalResult.feedback[key] || '')}</div>
-    </div>`).join('');
+  const dims = ['goal', 'context', 'task', 'constraints', 'output'];
+  const barCols = dims.map(key => {
+    const s = evalResult.scores[key];
+    const pct = (s / 3) * 100;
+    return `
+      <div class="score-bar-col">
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="height:${pct}%;background:${barColor(s)}"></div>
+        </div>
+        <div class="score-bar-num">${s}</div>
+        <div class="score-bar-label">${dimLabels[key]}</div>
+      </div>`;
+  }).join('');
 
   const totalColor = evalResult.total >= 10 ? 'eval-total-high' : evalResult.total >= 6 ? 'eval-total-mid' : 'eval-total-low';
 
@@ -476,9 +485,14 @@ function renderEvalResult(evalResult) {
         <div class="eval-total ${totalColor}">
           <span class="eval-total-num">${evalResult.total}</span><span class="eval-total-denom"> / 15</span>
         </div>
-        <div class="eval-overall">${escHtml(evalResult.overall || '')}</div>
       </div>
-      <div class="rubric-grid">${dimCards}</div>
+      <div class="score-bar-chart">
+        <div class="score-bar-y">
+          <span>3</span><span>2</span><span>1</span><span>0</span>
+        </div>
+        <div class="score-bar-cols">${barCols}</div>
+      </div>
+      <div class="eval-overall-feedback">${highlightBut(evalResult.overall || '')}</div>
     </div>`;
 }
 
@@ -1549,6 +1563,12 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function highlightBut(str) {
+  if (!str) return '';
+  const escaped = escHtml(str);
+  return escaped.replace(/(\bBUT\b.*)/i, '<span class="feedback-but">$1</span>');
 }
 function escAttr(str) {
   if (!str) return '';
