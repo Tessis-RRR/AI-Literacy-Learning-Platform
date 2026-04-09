@@ -939,6 +939,15 @@ function renderFaded(step) {
       </div>`;
   }).join('');
 
+  const allDone = activeIdx >= step.fields.length;
+  const assembledPrompt = assembleFadedPrompt(step);
+
+  const fullPromptBlock = allDone && assembledPrompt ? `
+    <div class="content-card" style="margin-top:1rem">
+      <div class="builder-preview-label">📋 Your full prompt</div>
+      <div class="full-prompt-preview">${escHtml(assembledPrompt)}</div>
+    </div>` : '';
+
   return `
     <div class="content-card">
       <div class="scenario-box">
@@ -950,7 +959,8 @@ function renderFaded(step) {
         <div class="callout-body">Complete each part one at a time. Write your response, click <strong>Evaluate</strong> for feedback, revise as many times as you like, then move to the next part.</div>
       </div>
       <div class="faded-form">${fields}</div>
-    </div>`;
+    </div>
+    ${fullPromptBlock}`;
 }
 
 function updateFadedPart(key, value) {
@@ -1070,6 +1080,30 @@ function nextFadedPart(idx, total) {
 
       nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  } else {
+    // Last part — convert final card to done and append full prompt block
+    const lastField = step.fields[idx];
+    const lastCard  = cards[idx];
+    if (lastCard && lastField) {
+      const completion = (state.fadedValues[lastField.key] || '').trim();
+      const fullText   = lastField.prefix ? `${lastField.prefix} ${completion}` : completion;
+      lastCard.className = 'faded-field faded-field--done';
+      lastCard.innerHTML = `
+        <div class="faded-field-label">
+          <span class="legend-pill ${lastField.type}">${componentIcon(lastField.type)} ${lastField.label}</span>
+        </div>
+        <div class="faded-done-text">${escHtml(fullText)}</div>`;
+    }
+
+    const assembledPrompt = assembleFadedPrompt(step);
+    const fullBlock = document.createElement('div');
+    fullBlock.className = 'content-card';
+    fullBlock.style.marginTop = '1rem';
+    fullBlock.innerHTML = `
+      <div class="builder-preview-label">📋 Your full prompt</div>
+      <div class="full-prompt-preview">${escHtml(assembledPrompt)}</div>`;
+    document.querySelector('.faded-form').after(fullBlock);
+    fullBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -1101,6 +1135,7 @@ function renderFullPractice(step) {
     </div>`).join('');
 
   const hasContent = Object.values(state.fullPracticeValues).some(v => v.trim());
+  const assembledFP = step.fields.map(f => (state.fullPracticeValues[f.key] || '').trim()).filter(Boolean).join('\n\n');
 
   return `
     <div class="content-card">
@@ -1113,6 +1148,12 @@ function renderFullPractice(step) {
         <div class="callout-body">Write a complete prompt using all 5 parts of the framework. Tip prompts are provided but the fields are blank — this is your prompt to write.</div>
       </div>
       <div class="practice-form">${fields}</div>
+      <div style="margin-top:1.25rem">
+        <div class="builder-preview-label">📋 Your assembled prompt</div>
+        <div class="full-prompt-preview ${assembledFP ? '' : 'empty'}" id="fp-preview">
+          ${assembledFP ? escHtml(assembledFP) : 'Your prompt will appear here as you type…'}
+        </div>
+      </div>
       <button class="btn-generate" id="fp-btn" style="margin-top:1.5rem" onclick="submitFullPractice()"
         ${hasContent ? '' : 'disabled'}>
         ${evalResult ? '🔄 Regenerate' : '✦ Submit — Get Feedback & See Output'}
@@ -1143,10 +1184,21 @@ function renderFullPractice(step) {
 
 function updateFullPractice(key, value) {
   state.fullPracticeValues[key] = value;
-  // Toggle the submit button — never re-render on input (avoids focus loss)
+
   const btn = document.getElementById('fp-btn');
-  if (btn) {
-    btn.disabled = !Object.values(state.fullPracticeValues).some(v => v.trim());
+  const hasContent = Object.values(state.fullPracticeValues).some(v => v.trim());
+  if (btn) btn.disabled = !hasContent;
+
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  const assembled = step
+    ? step.fields.map(f => (state.fullPracticeValues[f.key] || '').trim()).filter(Boolean).join('\n\n')
+    : '';
+
+  const preview = document.getElementById('fp-preview');
+  if (preview) {
+    preview.textContent = assembled || 'Your prompt will appear here as you type…';
+    preview.className = `full-prompt-preview ${assembled ? '' : 'empty'}`;
   }
 }
 
