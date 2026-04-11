@@ -1,15 +1,74 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const OpenAI = require('openai');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Connect to MongoDB Atlas if MONGO_URI is set
+if (process.env.MONGO_URI && process.env.MONGO_URI !== 'your_mongodb_atlas_connection_string_here') {
+  mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => console.error('MongoDB connection error:', err));
+}
+
+// Define the LogEvent Schema
+const logEventSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true },
+  event: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed },
+  ip: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const LogEvent = mongoose.model('LogEvent', logEventSchema);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const logDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
+
+app.post('/api/log', async (req, res) => {
+  try {
+    const { event, data, sessionId } = req.body;
+    
+    // Save to Database
+    if (mongoose.connection.readyState === 1) { // 1 = connected
+      await LogEvent.create({
+        sessionId: sessionId || 'unknown',
+        event: event || 'unknown',
+        data: data || {},
+        ip: req.ip
+      });
+    }
+
+    // Still save to local file as backup
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId: sessionId || 'unknown',
+      event: event || 'unknown',
+      data: data || {},
+      ip: req.ip
+    };
+    
+    fs.appendFile(path.join(logDir, 'user_events.jsonl'), JSON.stringify(logEntry) + '\n', (err) => {
+      if (err) console.error('Error writing log:', err);
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Logging API Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/api/generate', async (req, res) => {
   try {

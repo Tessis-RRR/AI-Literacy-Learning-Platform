@@ -112,6 +112,7 @@ function navigateStep(moduleId, stepIndex) {
   state.quizAnswers = {};
   state.quizChecked = false;
   markStepVisited(moduleId, stepIndex);
+  API.logEvent('navigate_step', { moduleId, stepIndex });
   render();
 }
 function nextStep() {
@@ -427,6 +428,7 @@ async function submitPretest() {
     const result = await API.evaluate(prompt);
     state.pretestEval = result;
     if (result.total >= 10) state.introSkipped = true;
+    API.logEvent('submit_pretest', { prompt, evalResult: result });
   } catch (err) {
     state.pretestEval = {
       error: true, total: 0,
@@ -628,6 +630,7 @@ function dropAnnotation(ev, expectedType) {
     const key = `${state.moduleId}_${state.stepIndex}`;
     if (!state.annotatedMatches[key]) state.annotatedMatches[key] = [];
     state.annotatedMatches[key].push(draggedType);
+    API.logEvent('annotated_dropped', { expectedType, draggedType, correct: true });
 
     // Update the matched block in place without re-rendering the whole page
     const block = ev.currentTarget.closest('.annotation-block');
@@ -661,6 +664,7 @@ function dropAnnotation(ev, expectedType) {
     const block = ev.currentTarget.closest('.annotation-block');
     block.classList.add('shake');
     setTimeout(() => block.classList.remove('shake'), 400);
+    API.logEvent('annotated_dropped', { expectedType, draggedType, correct: false });
   }
 }
 
@@ -1507,6 +1511,7 @@ async function submitPosttest() {
 
   try {
     state.posttestEval = await API.evaluate(prompt);
+    API.logEvent('submit_posttest', { prompt, evalResult: state.posttestEval });
   } catch (err) {
     state.posttestEval = {
       error: true, total: 0,
@@ -1556,6 +1561,7 @@ function selectQuizAnswer(qi, oi) {
 
 function checkAnswers() {
   state.quizChecked = true;
+  API.logEvent('quiz_checked', { answers: state.quizAnswers });
   document.getElementById('app-main').innerHTML = renderStep();
 }
 
@@ -1586,6 +1592,7 @@ async function sendBuilderPrompt() {
     const result = await API.generate(prompt, 'You are an expert EFL/ESL curriculum designer. Create detailed, practical, classroom-ready teaching materials. Follow the format and requirements specified in the prompt.');
     responseBody.className = 'response-body';
     responseBody.textContent = result;
+    API.logEvent('generate_prompt', { type: 'builder', prompt, result });
   } catch (err) {
     responseBody.className = 'response-body error';
     responseBody.textContent = `Error: ${err.message}`;
@@ -1614,6 +1621,7 @@ async function sendPlaygroundPrompt() {
     state[`playground_response_${state.moduleId}_${state.stepIndex}`] = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
+    API.logEvent('generate_prompt', { type: 'playground', prompt, result });
   } catch (err) {
     responseBody.className = 'response-body error';
     responseBody.textContent = `Error: ${err.message}`;
@@ -1645,6 +1653,7 @@ async function sendTransferPrompt() {
     state.transferResponse = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
+    API.logEvent('generate_prompt', { type: 'transfer', prompt, result });
     document.getElementById('app-main').innerHTML = renderStep();
   } catch (err) {
     responseBody.className = 'response-body error';
