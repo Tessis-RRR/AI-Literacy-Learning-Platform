@@ -52,5 +52,4 @@ const API = {
       // Ignore logging failures silently so they don't block user experience
     }
   }
-  }
 };
