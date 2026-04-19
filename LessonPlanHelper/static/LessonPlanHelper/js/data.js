@@ -1,12 +1,12 @@
 /* ============================================================
-   PromptCraft — Module content & data
+   ESL Co-Pilot — Module content & data
    ============================================================ */
 
 const MODULES = [
   {
     id: 1,
-    title: 'Using LLM for Lesson Planning',
-    description: 'Learn to write structured AI prompts that generate lesson plans and bilingual teaching materials tailored to your multilingual classroom.',
+    title: 'Design in Action',
+    description: 'Master the art of collaborative AI design. Move beyond simple prompts to build evidence-based lesson plans through a guided, hands-on workspace.',
     icon: '✦',
     duration: '~30 min',
     steps: 7,
@@ -155,7 +155,7 @@ const MODULES = [
             key: 'goal',
             label: 'Desired Results',
             type: 'desired_results',
-            prefix: 'By the end of this lesson, students will be able to',
+            prefix: '',
             placeholder: '…e.g. "write a clear 3-step how-to guide using sequence adverbs and imperative verbs, and give a peer one compliment and one suggestion during a script review."',
             tip: 'Name the specific skill students will produce — what can they write, say, or do? Include the grammar target (sequence adverbs) and any social language goal.'
           },
@@ -236,7 +236,15 @@ const MODULES = [
           {
             num: 'Q2',
             question: 'Which one part of your prompt will you change to improve that?',
-            hint: 'Make a deliberate, single revision choice — don\'t change everything at once. Then edit your prompt on the right and click Regenerate.'
+            hint: 'Make a deliberate, single revision choice — don\'t change everything at once. Then edit your prompt on the right and click Regenerate.',
+            type: 'multiple_choice',
+            options: [
+              'Desired Results',
+              'Learner & Context',
+              'Evidence of Learning',
+              'Instructional Plan',
+              'Output Requirements'
+            ]
           },
           {
             num: 'Q3',
@@ -257,7 +265,7 @@ const MODULES = [
       {
         type: 'posttest',
         title: 'Post-Test',
-        instruction: 'Read the scenario and source text below. Write the exact prompt you would give to an AI to create a lesson plan based on this material.',
+        instruction: 'Read the scenario below. Write the exact prompt you would give to an AI to create a lesson plan based on this material.',
         scenario: {
           title: 'Scenario 5: The Tech Tug-of-War',
           topic: 'Screens in School (Benefits vs. Drawbacks)',
@@ -271,8 +279,7 @@ const MODULES = [
           },
           social_language: 'Negotiation and Compromise. Small group discussions where students must agree on a "balanced" rule for laptop use in the classroom.'
         },
-        sourceText: '"Energy drinks contain high concentrations of caffeine and taurine that temporarily block adenosine receptors in the brain, delaying the onset of sleep. However, this artificial alert state inevitably leads to a physiological \'crash,\' characterized by severe fatigue and a measurable decrease in baseline executive functioning and emotional regulation."',
-        placeholder: 'Write your full prompt here, using the 5-part framework (Goal, Context, Task, Constraints, Output Format)…'
+        placeholder: 'Write your full prompt here, using the 5-part framework (Desired Results, Learner & Context, Evidence of Learning, Instructional Plan, Output Requirements)…'
       }
 
     ]

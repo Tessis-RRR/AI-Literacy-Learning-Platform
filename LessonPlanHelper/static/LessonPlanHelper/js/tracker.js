@@ -1,5 +1,5 @@
 /* ============================================================
-   PromptCraft — Behavioural Tracker
+   ESL Co-Pilot — Behavioural Tracker
    Tracks: time on step, button clicks, field edits.
    All events are sent fire-and-forget via API.logEvent.
    ============================================================ */

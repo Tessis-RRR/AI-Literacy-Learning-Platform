@@ -1,5 +1,5 @@
 /* ============================================================
-   PromptCraft — App logic & rendering
+   ESL Co-Pilot — App logic & rendering
    ============================================================ */
 
 /* ── State ──────────────────────────────────────────────── */
@@ -189,7 +189,7 @@ function renderHeader() {
       <div class="header-inner">
         <a class="header-logo" href="#" onclick="navigateDashboard(); return false;">
           <div class="header-logo-icon">✦</div>
-          <span class="header-logo-text">PromptCraft</span>
+          <span class="header-logo-text">ESL Co-Pilot</span>
         </a>
         <div class="header-progress-wrap">
           <div class="header-progress-label">Overall Progress — ${pct}%</div>
@@ -207,7 +207,7 @@ function renderHeader() {
       <div class="header-inner">
         <a class="header-logo" href="#" onclick="navigateDashboard(); return false;">
           <div class="header-logo-icon">✦</div>
-          <span class="header-logo-text">PromptCraft</span>
+          <span class="header-logo-text">ESL Co-Pilot</span>
         </a>
         <div class="header-progress-wrap">
           <div class="header-progress-label">${mod ? mod.title : ''} — ${modPct}%</div>
@@ -227,9 +227,9 @@ function renderDashboard() {
   return `
     <div class="landing fade-in">
       <div class="landing-hero">
-        <div class="landing-hero-badge">✦ AI Literacy for Multilingual Teachers</div>
-        <h1>Welcome to <span>PromptCraft</span></h1>
-        <p>Learn to write structured AI prompts that generate lesson plans and bilingual teaching materials — reliably and efficiently.</p>
+        <div class="landing-hero-badge">✦ ACTIVE LEARNING FOR ESL EDUCATORS</div>
+        <h1>Welcome to <span>ESL Co-Pilot</span></h1>
+        <p>AI-powered design workspace that coaches ESL teachers through the "learning-by-doing" process of crafting evidence-based, active learning lesson plans.</p>
         <div class="landing-stats">
           <div class="landing-stat">
             <span class="landing-stat-value">30</span>
@@ -456,6 +456,12 @@ function renderPretest(step) {
           Submit for Evaluation →
         </button>` : ''}
       ${evalHtml}
+      ${state.pretestGenerated ? `
+        <div class="response-area" style="margin-top:1.5rem">
+          <div class="response-header">🤖 AI Generated Lesson Plan</div>
+          <div class="response-body">${escHtml(state.pretestGenerated)}</div>
+        </div>
+      ` : ''}
     </div>`;
 }
 
@@ -474,10 +480,14 @@ async function submitPretest() {
   }
 
   try {
-    const result = await API.evaluate(prompt);
+    const [result, generatedPlan] = await Promise.all([
+      API.evaluate(prompt),
+      API.generate(prompt, "You are an expert EFL/ESL curriculum designer. Generate a lesson plan following the user's prompt exactly.")
+    ]);
     state.pretestEval = result;
+    state.pretestGenerated = generatedPlan;
     if (result.total_score >= 10) state.introSkipped = true;
-    API.logEvent('submit_pretest', { prompt, evalResult: result });
+    API.logEvent('submit_pretest', { prompt, evalResult: result, generatedPlan });
   } catch (err) {
     state.pretestEval = {
       error: true, total_score: 0,
@@ -1596,10 +1606,26 @@ function renderReflectionQuestion(q, qi, totalQ) {
           <em>${escHtml(q.starter)}</em>
         </div>
       </div>` : ''}
-    <textarea class="prompt-textarea" id="sr-q-textarea"
-      placeholder="${q.starter ? escAttr(q.starter) : 'Write your response here…'}"
-      oninput="saveReflectionAnswer(${qi}, this.value)"
-      style="margin-top:0;min-height:100px">${escHtml(saved)}</textarea>
+    ${q.type === 'multiple_choice' ? `
+      <div class="sr-q-mc-options" style="margin-top: 0.5rem">
+        ${q.options.map((opt, optIndex) => `
+          <label class="sr-mc-label" style="display: flex; align-items: center; margin-bottom: 0.75rem; cursor: pointer; padding: 0.75rem 1rem; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; background: #fff; transition: all 0.2s ease;"
+                 onmouseover="this.style.borderColor='var(--primary, #6366f1)'; this.style.backgroundColor='#f8fafc';"
+                 onmouseout="this.style.borderColor='var(--border, #e5e7eb)'; this.style.backgroundColor='#fff';">
+            <input type="radio" name="sr_q_${qi}" value="${escAttr(opt)}"
+              onchange="saveReflectionAnswer(${qi}, this.value)"
+              ${saved === opt ? 'checked' : ''}
+              style="margin-right: 0.75rem; width: 1.1rem; height: 1.1rem; accent-color: var(--primary, #6366f1); cursor: pointer;">
+            <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-main, #1f2937);">${escHtml(opt)}</span>
+          </label>
+        `).join('')}
+      </div>
+    ` : `
+      <textarea class="prompt-textarea" id="sr-q-textarea"
+        placeholder="${q.starter ? escAttr(q.starter) : 'Write your response here…'}"
+        oninput="saveReflectionAnswer(${qi}, this.value)"
+        style="margin-top:0;min-height:100px">${escHtml(saved)}</textarea>
+    `}
     <div class="sr-q-nav">
       <button id="reflection-next-btn" class="btn-nav primary"
         onclick="advanceReflectionQuestion()"
@@ -1755,7 +1781,9 @@ async function regenReflection() {
 
 /* ── POST-TEST ──────────────────────────────────────────── */
 function renderPosttest(step) {
-  const evalResult = state.posttestEval;
+  state.posttestEvals = state.posttestEvals || [];
+  const evalsCount = state.posttestEvals.length;
+  const evalResult = evalsCount > 0 ? state.posttestEvals[evalsCount - 1] : null;
   const preEval = state.pretestEval;
 
   let evalHtml = '';
@@ -1764,11 +1792,23 @@ function renderPosttest(step) {
 
     // Score comparison
     if (preEval) {
-      const preScore = preEval.total || 0;
-      const postScore = evalResult.total_score || 0;
-      const diff = postScore - preScore;
+      const preScore = preEval.total_score || preEval.total || 0;
+      const finalScore = evalResult.total_score || 0;
+      const diff = finalScore - preScore;
       const diffText = diff > 0 ? `+${diff}` : `${diff}`;
       const diffColor = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-secondary)';
+
+      const attemptsHtml = state.posttestEvals.map((ev, idx) => {
+        const s = ev.total_score || 0;
+        return `
+            <div class="score-compare-item">
+              <div class="score-compare-label">Attempt ${idx + 1}</div>
+              <div class="score-compare-bar-wrap">
+                <div class="score-compare-bar post" style="width:${(s / 15) * 100}%"></div>
+              </div>
+              <div class="score-compare-num">${s}/15</div>
+            </div>`;
+      }).join('');
 
       evalHtml = `
         <div class="score-compare">
@@ -1781,13 +1821,7 @@ function renderPosttest(step) {
               </div>
               <div class="score-compare-num">${preScore}/15</div>
             </div>
-            <div class="score-compare-item">
-              <div class="score-compare-label">Post-Test</div>
-              <div class="score-compare-bar-wrap">
-                <div class="score-compare-bar post" style="width:${(postScore / 15) * 100}%"></div>
-              </div>
-              <div class="score-compare-num">${postScore}/15</div>
-            </div>
+            ${attemptsHtml}
           </div>
           <div class="score-compare-diff" style="color:${diffColor}">
             ${diff === 0 ? 'Same score as pre-test' : `${diffText} points from pre-test`}
@@ -1800,7 +1834,7 @@ function renderPosttest(step) {
       <div class="callout success" style="margin-top:1rem">
         <div class="callout-icon">🎉</div>
         <div class="callout-body">
-          <strong>Module complete!</strong> You now have the skills to write structured prompts that generate classroom-ready, culturally appropriate lesson materials. Click <strong>Complete Module →</strong> to finish.
+          <strong>Module complete!</strong> You now have the skills to write structured prompts that generate classroom-ready, culturally appropriate lesson materials. ${evalsCount < 3 ? 'You can revise your prompt and re-evaluate below, or c' : 'C'}lick <strong>Complete Module →</strong> to finish.
         </div>
       </div>`;
   }
@@ -1813,21 +1847,27 @@ function renderPosttest(step) {
         <div class="scenario-box-label">Scenario</div>
         ${renderScenario(step.scenario)}
       </div>
-      <div class="scenario-box" style="margin-top:0.75rem;border-left-color:var(--warning)">
-        <div class="scenario-box-label" style="color:var(--warning)">Source Text</div>
-        <p style="font-style:italic">${escHtml(step.sourceText)}</p>
-      </div>
+
       <div style="margin-top:1.5rem">
         <div class="playground-section-label">✏️ Your Prompt</div>
         <textarea class="prompt-textarea" id="posttest-input"
           placeholder="${escAttr(step.placeholder)}"
-          ${evalResult ? 'readonly' : ''}>${escHtml(state.posttestPrompt)}</textarea>
+          ${evalsCount >= 3 ? 'readonly' : ''}>${escHtml(state.posttestPrompt)}</textarea>
       </div>
-      ${!evalResult ? `
+      ${evalsCount === 0 ? `
         <button class="btn-generate" id="posttest-btn" style="margin-top:1rem" onclick="submitPosttest()">
           Submit for Evaluation →
+        </button>` : evalsCount < 3 ? `
+        <button class="btn-generate" id="posttest-btn" style="margin-top:1rem" onclick="submitPosttest()">
+          Regenerate & Re-evaluate (Attempt ${evalsCount + 1} of 3) →
         </button>` : ''}
       ${evalHtml}
+      ${evalResult && evalResult.generatedPlan ? `
+        <div class="response-area" style="margin-top:1.5rem">
+          <div class="response-header">🤖 AI Generated Lesson Plan</div>
+          <div class="response-body" style="font-size:0.95rem">${escHtml(evalResult.generatedPlan)}</div>
+        </div>
+      ` : ''}
     </div>`;
 }
 
@@ -1846,15 +1886,25 @@ async function submitPosttest() {
   }
 
   try {
-    state.posttestEval = await API.evaluate(prompt);
-    API.logEvent('submit_posttest', { prompt, evalResult: state.posttestEval });
+    const [result, generatedPlan] = await Promise.all([
+      API.evaluate(prompt),
+      API.generate(prompt, "You are an expert EFL/ESL curriculum designer. Generate a lesson plan following the user's prompt exactly.")
+    ]);
+    result.generatedPlan = generatedPlan;
+    state.posttestEvals = state.posttestEvals || [];
+    state.posttestEvals.push(result);
+    state.posttestEval = result;
+    API.logEvent('submit_posttest', { prompt, evalResult: result, attempt: state.posttestEvals.length });
   } catch (err) {
-    state.posttestEval = {
+    const errResult = {
       error: true, total_score: 0,
       scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
       overall_judgment: 'Beginning',
       revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection.' }
     };
+    state.posttestEvals = state.posttestEvals || [];
+    state.posttestEvals.push(errResult);
+    state.posttestEval = errResult;
   }
   document.getElementById('app-main').innerHTML = renderStep();
 }
@@ -1871,7 +1921,7 @@ function renderComplete() {
         <div class="complete-icon">${isLastMod ? '🏆' : '🎉'}</div>
         <h2>${isLastMod ? 'Module Complete!' : `Module ${state.moduleId} Complete!`}</h2>
         <p>${isLastMod
-      ? 'Congratulations — you have completed PromptCraft. You now have the skills to write structured prompts that generate high-quality, culturally appropriate lesson materials for your multilingual classroom.'
+      ? 'Congratulations — you have completed ESL Co-Pilot. You now have the skills to write structured prompts that generate high-quality, culturally appropriate lesson materials for your multilingual classroom.'
       : `Great work! You have finished "${mod?.title}". You are ready for the next module.`
     }</p>
         ${isLastMod
@@ -2037,7 +2087,7 @@ function renderNameEntry() {
     <div class="landing fade-in" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
       <div class="content-card" style="max-width:400px;width:100%;text-align:center;padding:2.5rem">
         <div style="font-size:2.2rem;margin-bottom:1rem">✦</div>
-        <h2 style="margin-bottom:0.4rem;font-size:1.5rem">PromptCraft</h2>
+        <h2 style="margin-bottom:0.4rem;font-size:1.5rem">ESL Co-Pilot</h2>
         <p style="color:var(--text-secondary);margin-bottom:2rem;font-size:0.95rem">
           Enter a username to begin.<br>
           Your progress and responses will be saved under this name.
