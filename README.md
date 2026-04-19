@@ -1,4 +1,4 @@
-# PromptCraft
+# ESL Co-Pilot
 
 An interactive web-based learning module that teaches multilingual middle school teachers how to use LLMs to create lesson plans and bilingual teaching materials.
 

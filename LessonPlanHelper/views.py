@@ -359,7 +359,7 @@ Rules:
 
 
 # ── POST /api/highlight ──────────────────────────────────────
-# Chunk-based semantic comparison (PromptCraft “meaningful changes”).
+# Chunk-based semantic comparison (ESL Co-Pilot “meaningful changes”).
 
 def _strip_json_fence(raw):
     t = (raw or '').strip()
