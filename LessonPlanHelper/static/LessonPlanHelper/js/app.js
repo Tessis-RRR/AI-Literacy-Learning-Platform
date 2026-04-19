@@ -35,9 +35,15 @@ const state = {
   fullPracticeGenerated: '',
   fullPracticePrevGenerated: '',
   // Self-reflection
-  reflectionAnswers: {},   // { qi: { selected: [], other: '' } }
-  reflectionEditValues: null, // copy of fullPracticeValues seeded on first visit; edits stay here only
+  reflectionAnswers: {},
+  reflectionEditValues: null,
   reflectionGibberish: false,
+  reflectionCurrentQ: 0,
+  reflectionPrevGenerated: '',
+  reflectionShowDiff: false,
+  reflectionHighlightPhrases: [],
+  reflectionHighlightFields: [],
+  reflectionPrevPromptValues: null,
   // Post-test
   posttestPrompt: '',
   posttestEval: null
@@ -380,6 +386,29 @@ function renderStep() {
     </div>`;
 }
 
+/* ── Scenario renderer ──────────────────────────────────── */
+function renderScenario(scenario) {
+  if (typeof scenario === 'string') return `<p>${escHtml(scenario)}</p>`;
+  const s = scenario;
+  const vocab = s.vocabulary;
+  return `
+    <div class="scenario-structured">
+      <div class="scenario-row"><strong>Topic:</strong> ${escHtml(s.topic)}</div>
+      <div class="scenario-row"><strong>Learners:</strong> ${escHtml(s.learners)}</div>
+      <div class="scenario-row"><strong>Foundational Literacy:</strong> ${escHtml(s.foundational_literacy)}</div>
+      <div class="scenario-row"><strong>Grammar and Syntax:</strong> ${escHtml(s.grammar_and_syntax)}</div>
+      <div class="scenario-row">
+        <strong>Vocabulary Acquisition:</strong>
+        <div class="vocab-tiers">
+          <div><strong>Tier 1:</strong> ${escHtml(vocab.tier_1.join(', '))}</div>
+          <div><strong>Tier 2:</strong> ${escHtml(vocab.tier_2.join(', '))}</div>
+          <div><strong>Tier 3:</strong> ${escHtml(vocab.tier_3.join(', '))}</div>
+        </div>
+      </div>
+      <div class="scenario-row"><strong>Social Language:</strong> ${escHtml(s.social_language)}</div>
+    </div>`;
+}
+
 /* ── PRE-TEST ───────────────────────────────────────────── */
 function renderPretest(step) {
   const evalResult = state.pretestEval;
@@ -392,7 +421,7 @@ function renderPretest(step) {
         <div class="callout success" style="margin-top:1rem">
           <div class="callout-icon">⚡</div>
           <div class="callout-body">
-            <strong>Great work!</strong> Your prompt already shows strong structure (${evalResult.total}/15).
+            <strong>Great work!</strong> Your prompt already shows strong structure (${evalResult.total_score}/15).
             You can skip the framework intro and go straight to the worked example.
             <br><a href="#" onclick="reviewIntro(); return false;" style="color:var(--primary);font-weight:600">Review the 5-Part Framework anyway →</a>
           </div>
@@ -414,7 +443,7 @@ function renderPretest(step) {
       <p style="margin-bottom:1rem">${escHtml(step.instruction)}</p>
       <div class="scenario-box">
         <div class="scenario-box-label">Scenario</div>
-        <p>${escHtml(step.scenario)}</p>
+        ${renderScenario(step.scenario)}
       </div>
       <div style="margin-top:1.5rem">
         <div class="playground-section-label">✏️ Your Prompt</div>
@@ -447,14 +476,14 @@ async function submitPretest() {
   try {
     const result = await API.evaluate(prompt);
     state.pretestEval = result;
-    if (result.total >= 10) state.introSkipped = true;
+    if (result.total_score >= 10) state.introSkipped = true;
     API.logEvent('submit_pretest', { prompt, evalResult: result });
   } catch (err) {
     state.pretestEval = {
-      error: true, total: 0,
-      scores: { goal: 0, context: 0, task: 0, constraints: 0, output: 0 },
-      feedback: { goal: err.message, context: '', task: '', constraints: '', output: '' },
-      overall: 'Could not evaluate. Please check your connection and try again.'
+      error: true, total_score: 0,
+      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      overall_judgment: 'Beginning',
+      revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection and try again.' }
     };
   }
   document.getElementById('app-main').innerHTML = renderStep();
@@ -476,11 +505,11 @@ function renderEvalResult(evalResult) {
   }
 
   const dimLabels = {
-    goal: 'Goal',
-    context: 'Context',
-    task: 'Task',
-    constraints: 'Constraints',
-    output: 'Output Format'
+    desired_results:      'Desired Results',
+    learner_context:      'Learner & Context',
+    evidence_of_learning: 'Evidence of Learning',
+    instructional_plan:   'Instructional Plan',
+    output_requirements:  'Output Requirements'
   };
   const barColor = s => {
     if (s === 0) return '#dc2626';
@@ -489,9 +518,10 @@ function renderEvalResult(evalResult) {
     return '#16a34a';
   };
 
-  const dims = ['goal', 'context', 'task', 'constraints', 'output'];
+  const dims = ['desired_results', 'learner_context', 'evidence_of_learning', 'instructional_plan', 'output_requirements'];
   const barCols = dims.map(key => {
-    const s = evalResult.scores[key];
+    const d = evalResult.scores[key] || {};
+    const s = typeof d === 'object' ? (d.score ?? 0) : d;
     const pct = (s / 3) * 100;
     return `
       <div class="score-bar-col">
@@ -503,13 +533,37 @@ function renderEvalResult(evalResult) {
       </div>`;
   }).join('');
 
-  const totalColor = evalResult.total >= 10 ? 'eval-total-high' : evalResult.total >= 6 ? 'eval-total-mid' : 'eval-total-low';
+  const total = evalResult.total_score ?? 0;
+  const totalColor = total >= 10 ? 'eval-total-high' : total >= 6 ? 'eval-total-mid' : 'eval-total-low';
+
+  // Per-dimension reasons
+  const reasonsHtml = dims.map(key => {
+    const d = evalResult.scores[key] || {};
+    const reason = typeof d === 'object' ? d.reason : '';
+    if (!reason) return '';
+    const s = typeof d === 'object' ? (d.score ?? 0) : d;
+    return `<div style="margin-bottom:0.5rem"><strong style="color:${barColor(s)}">${dimLabels[key]}:</strong> ${reason}</div>`;
+  }).filter(Boolean).join('');
+
+  // Strengths
+  const strengthsHtml = (evalResult.strengths || []).length
+    ? `<div style="margin-top:1rem"><strong>✓ Strengths:</strong><ul style="margin:0.25rem 0 0 1.2rem;padding:0">${(evalResult.strengths || []).slice(0, 3).map(s => `<li>${s}</li>`).join('')}</ul></div>`
+    : '';
+
+  // Priority improvements
+  const improvementsHtml = (evalResult.priority_improvements || []).length
+    ? `<div style="margin-top:1rem"><strong>↑ Priority Improvements:</strong>${(evalResult.priority_improvements || []).slice(0, 3).map(p =>
+        `<div style="margin-top:0.5rem;padding:0.5rem 0.75rem;background:#fff8f0;border-left:3px solid #f97316;border-radius:4px">
+          <strong>${dimLabels[p.dimension] || p.dimension}:</strong> ${p.how_to_improve}
+        </div>`).join('')}</div>`
+    : '';
 
   return `
     <div class="eval-result">
       <div class="eval-header">
         <div class="eval-total ${totalColor}">
-          <span class="eval-total-num">${evalResult.total}</span><span class="eval-total-denom"> / 15</span>
+          <span class="eval-total-num">${total}</span><span class="eval-total-denom"> / 15</span>
+          <span style="font-size:0.8rem;font-weight:500;margin-left:0.5rem;opacity:0.7">${evalResult.overall_judgment || ''}</span>
         </div>
       </div>
       <div class="score-bar-chart">
@@ -518,7 +572,9 @@ function renderEvalResult(evalResult) {
         </div>
         <div class="score-bar-cols">${barCols}</div>
       </div>
-      <div class="eval-overall-feedback">${highlightBut(evalResult.overall || '')}</div>
+      ${reasonsHtml ? `<div style="margin-top:1rem;font-size:0.88rem;color:var(--text-secondary)">${reasonsHtml}</div>` : ''}
+      ${strengthsHtml}
+      ${improvementsHtml}
     </div>`;
 }
 
@@ -570,8 +626,14 @@ function renderAnnotated(step) {
   const matches = state.annotatedMatches[stepKey];
   const order = state.annotatedOrder[stepKey];
 
-  const types = ['goal', 'context', 'task', 'constraint', 'output'];
-  const labels = { goal: 'Goal', context: 'Context', task: 'Task', constraint: 'Constraints', output: 'Output Format' };
+  const types = ['desired_results', 'learner_context', 'evidence_of_learning', 'instructional_plan', 'output_requirements'];
+  const labels = {
+    desired_results:      'Desired Results',
+    learner_context:      'Learner & Context',
+    evidence_of_learning: 'Evidence of Learning',
+    instructional_plan:   'Instructional Plan',
+    output_requirements:  'Output Requirements'
+  };
 
   const legendPills = types.map(type => {
     if (matches.includes(type)) return '';
@@ -611,7 +673,7 @@ function renderAnnotated(step) {
     <div class="content-card">
       <div class="scenario-box">
         <div class="scenario-box-label">Scenario</div>
-        <p>${escHtml(step.scenario)}</p>
+        ${renderScenario(step.scenario)}
       </div>
       ${step.sourceText ? `
       <div class="scenario-box" style="margin-top:0.75rem;border-left-color:var(--accent-secondary,#7c3aed)">
@@ -629,7 +691,13 @@ function renderAnnotated(step) {
 }
 
 function componentIcon(type) {
-  return { goal: '🎯', context: '👥', task: '📋', constraint: '🔒', output: '📄' }[type] || '•';
+  return {
+    desired_results:      '🎯',
+    learner_context:      '👥',
+    evidence_of_learning: '🔒',
+    instructional_plan:   '📋',
+    output_requirements:  '📄'
+  }[type] || '•';
 }
 
 function dragAnnotation(ev, type) {
@@ -976,7 +1044,7 @@ function renderFaded(step) {
     <div class="content-card">
       <div class="scenario-box">
         <div class="scenario-box-label">Your Scenario</div>
-        <p>${escHtml(step.scenario)}</p>
+        ${renderScenario(step.scenario)}
       </div>
       <div class="callout info" style="margin-top:1rem">
         <div class="callout-icon">✏️</div>
@@ -1168,7 +1236,7 @@ function renderFullPractice(step) {
     <div class="content-card">
       <div class="scenario-box">
         <div class="scenario-box-label">Your Scenario</div>
-        <p>${escHtml(step.scenario)}</p>
+        ${renderScenario(step.scenario)}
       </div>
       <div class="callout info" style="margin-top:1rem">
         <div class="callout-icon">✏️</div>
@@ -1258,10 +1326,14 @@ async function submitFullPractice() {
     state.fullPracticeEval = evalResult;
     // Log score trajectory for each attempt
     API.logEvent('fullpractice_attempt', {
-      attempt:      state.fullPracticeAttempt,
-      scores:       evalResult.scores,
-      total:        evalResult.total,
-      editedFields: Tracker.getEditedFields()
+      attempt:            state.fullPracticeAttempt,
+      scores:             evalResult.scores,
+      total_score:        evalResult.total_score,
+      overall_judgment:   evalResult.overall_judgment,
+      strengths:          evalResult.strengths,
+      priority_improvements: evalResult.priority_improvements,
+      revision_feedback:  evalResult.revision_feedback,
+      editedFields:       Tracker.getEditedFields()
     });
     if (evalResult.gibberish) {
       state.fullPracticeGenerated = '';
@@ -1270,54 +1342,138 @@ async function submitFullPractice() {
     }
   } catch (err) {
     state.fullPracticeEval = {
-      error: true, total: 0,
-      scores: { goal: 0, context: 0, task: 0, constraints: 0, output: 0 },
-      feedback: { goal: err.message, context: '', task: '', constraints: '', output: '' },
-      overall: 'Could not evaluate. Please check your connection.'
+      error: true, total_score: 0,
+      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      overall_judgment: 'Beginning',
+      revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection.' }
     };
     state.fullPracticeGenerated = 'Could not generate. Please check your connection.';
   }
   document.getElementById('app-main').innerHTML = renderStep();
 }
 
+/* ── Word diff ──────────────────────────────────────────── */
+function computeWordDiff(oldText, newText) {
+  const tokenize = s => {
+    const tokens = [];
+    s.split(/(\n)/).forEach(chunk => {
+      if (chunk === '\n') { tokens.push('\n'); return; }
+      chunk.split(/\s+/).forEach(w => { if (w) tokens.push(w); });
+    });
+    return tokens;
+  };
+  const a = tokenize(oldText), b = tokenize(newText);
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const ops = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift({ t: '=', v: b[j-1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({ t: '+', v: b[j-1] }); j--; }
+    else { ops.unshift({ t: '-', v: a[i-1] }); i--; }
+  }
+  let html = '', newline = true;
+  for (const op of ops) {
+    if (op.v === '\n') { html += '\n'; newline = true; continue; }
+    const sp = newline ? '' : ' ';
+    const s = escHtml(op.v);
+    if (op.t === '=') html += sp + s;
+    else if (op.t === '+') html += `${sp}<mark class="diff-add">${s}</mark>`;
+    else html += `${sp}<del class="diff-del">${s}</del>`;
+    newline = false;
+  }
+  return html;
+}
+
+function highlightPhrasesInText(text, phrases) {
+  if (!phrases || phrases.length === 0) return escHtml(text);
+  const normalizedPhrases = phrases.map(p => (p || '').toLowerCase().trim()).filter(p => p.length >= 3);
+  const paragraphs = text.split(/\n/);
+  let matchCount = 0;
+  const result = paragraphs.map(para => {
+    const escaped = escHtml(para);
+    if (!para.trim()) return escaped;
+    const paraLow = para.toLowerCase();
+    const matched = normalizedPhrases.some(phrase => paraLow.includes(phrase));
+    if (matched) matchCount++;
+    return matched ? `<span class="highlight-para">${escaped}</span>` : escaped;
+  }).join('\n');
+  console.log(`[highlight] Matched ${matchCount}/${paragraphs.length} lines with phrases:`, normalizedPhrases);
+  return result;
+}
+
+function renderReflectionOutputPanel() {
+  const generated = state.fullPracticeGenerated;
+  const phrases   = state.reflectionHighlightPhrases || [];
+  const fields    = state.reflectionHighlightFields  || [];
+  const showHighlight = state.reflectionShowDiff && phrases.length > 0;
+
+  let banner = '';
+  if (showHighlight && fields.length > 0) {
+    banner = `<div class="highlight-banner">
+      ✨ Highlighting sections shaped by your changes to: <strong>${fields.join(', ')}</strong>
+    </div>`;
+  }
+
+  const toggleBtn = (state.reflectionPrevGenerated && generated)
+    ? `<button class="btn-diff-toggle" onclick="toggleReflectionDiff()">
+         ${showHighlight ? '📄 Clean View' : '✨ Show Changes'}
+       </button>`
+    : '';
+
+  let content;
+  if (!generated) {
+    content = `<div class="callout info" style="margin-top:0.5rem">
+      <div class="callout-icon">📄</div>
+      <div class="callout-body">Complete the Full Prompt Practice step first to see your generated lesson plan here.</div>
+    </div>`;
+  } else if (showHighlight) {
+    content = `${banner}<pre class="response-body diff-view" id="reflect-output">${highlightPhrasesInText(generated, phrases)}</pre>`;
+  } else {
+    content = `<div class="response-body" id="reflect-output" style="margin-top:0.5rem">${escHtml(generated)}</div>`;
+  }
+
+  return `
+    <div class="reflection-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+      <span>📄 AI-Generated Output</span>
+      ${toggleBtn}
+    </div>
+    ${content}`;
+}
+
+function toggleReflectionDiff() {
+  state.reflectionShowDiff = !state.reflectionShowDiff;
+  const panel = document.querySelector('.sr-output-panel');
+  if (panel) panel.innerHTML = renderReflectionOutputPanel();
+}
+
 /* ── SELF-REFLECTION ────────────────────────────────────── */
 function renderSelfReflection(step) {
   if (!state.reflectionAnswers) state.reflectionAnswers = {};
-
-  const questions = step.questions.map((q, qi) => {
-    const ans = state.reflectionAnswers[qi] || { selected: [], other: '' };
-    const options = q.options.map((opt, oi) => {
-      const isSelected = ans.selected.includes(oi);
-      return `<button class="multiselect-option ${isSelected ? 'selected' : ''}"
-        onclick="toggleReflectionOption(${qi}, ${oi})">${escHtml(opt)}</button>`;
-    }).join('');
-
-    return `
-      <div class="reflection-multiselect-q">
-        <div class="reflection-q-num">${q.num}</div>
-        <div class="reflection-q-text">${escHtml(q.question)}</div>
-        <div class="multiselect-options">${options}</div>
-        <div class="other-input-wrap">
-          <label class="other-label">Other:</label>
-          <textarea class="other-textarea" placeholder="Write your own reflection here…"
-            oninput="saveReflectionOther(${qi}, this.value)">${escHtml(ans.other || '')}</textarea>
-        </div>
-      </div>`;
-  }).join('');
-
-  // Seed reflection edit values from full practice on first visit — never writes back
-  if (!state.reflectionEditValues) {
+  if (state.reflectionCurrentQ === undefined) state.reflectionCurrentQ = 0;
+  const hasEdits = state.reflectionEditValues &&
+    Object.values(state.reflectionEditValues).some(v => v?.trim());
+  if (!hasEdits) {
     state.reflectionEditValues = { ...state.fullPracticeValues };
   }
 
-  // Right panel: editable prompt + regenerate + output
+  const totalQ = step.questions.length;
+  const qi = Math.min(state.reflectionCurrentQ, totalQ);
+
+  const questionAreaHtml = qi >= totalQ
+    ? `<div class="callout success"><div class="callout-icon">✅</div><div class="callout-body"><strong>All questions answered!</strong> Edit your prompt below and regenerate to see how changes affect the output.</div></div>`
+    : renderReflectionQuestion(step.questions[qi], qi, totalQ);
+
   const v = state.reflectionEditValues;
-  const rightFields = [
-    { key: 'goal', label: 'Goal', type: 'goal' },
-    { key: 'context', label: 'Context', type: 'context' },
-    { key: 'task', label: 'Task', type: 'task' },
-    { key: 'constraints', label: 'Constraints', type: 'constraint' },
-    { key: 'output', label: 'Output Format', type: 'output' }
+  const promptFields = [
+    { key: 'goal',        label: 'Desired Results',      type: 'desired_results' },
+    { key: 'context',     label: 'Learner & Context',    type: 'learner_context' },
+    { key: 'constraints', label: 'Evidence of Learning', type: 'evidence_of_learning' },
+    { key: 'task',        label: 'Instructional Plan',   type: 'instructional_plan' },
+    { key: 'output',      label: 'Output Requirements',  type: 'output_requirements' }
   ].map(f => `
     <div class="right-field">
       <div class="right-field-label">
@@ -1327,61 +1483,96 @@ function renderSelfReflection(step) {
         oninput="updateReflectionField('${f.key}', this.value)">${escHtml(v[f.key] || '')}</textarea>
     </div>`).join('');
 
-  const generated = state.fullPracticeGenerated;
-
   return `
     <p class="reflection-intro">${step.intro}</p>
-    <div class="reflection-split">
-      <div class="reflection-left">
-        <div class="reflection-panel-header">💭 Reflect</div>
-        <div class="callout info" style="margin-bottom:1rem">
-          <div class="callout-icon">☑</div>
-          <div class="callout-body">Select all that apply — you can choose multiple options for each question.</div>
-        </div>
-        ${questions}
-      </div>
 
-      <div class="reflection-right">
+    <div class="sr-question-card content-card" id="reflection-q-area">
+      ${questionAreaHtml}
+    </div>
+
+    <div class="sr-bottom-row">
+      <div class="sr-prompt-panel content-card">
         <div class="reflection-panel-header">🔄 Refine Your Prompt</div>
         <div class="callout warning" style="margin-bottom:1rem">
           <div class="callout-icon">💡</div>
-          <div class="callout-body"><strong>Try it!</strong> Edit any part of your prompt below and click Regenerate to see how the output changes.</div>
+          <div class="callout-body"><strong>Try it!</strong> Edit any part of your prompt and click Regenerate to see how the output changes.</div>
         </div>
-        ${rightFields}
+        ${promptFields}
         <button class="btn-generate" id="reflect-regen-btn" style="margin-top:1rem;width:100%" onclick="regenReflection()">
           🔄 Regenerate Output
         </button>
         ${state.reflectionGibberish ? `
-          <div class="eval-result" style="margin-top:1.25rem">
+          <div style="margin-top:1rem">
             <div class="callout" style="border-left-color:var(--danger);background:#fff5f5">
               <div class="callout-icon">⚠️</div>
-              <div class="callout-body">
-                <strong>Input not recognised as a teaching prompt.</strong> Your prompt appears to be gibberish or too short — it has been given a score of 0/15.
-                Please revise your prompt above and click Regenerate Output again.
-              </div>
+              <div class="callout-body"><strong>Input not recognised.</strong> Please revise your prompt and try again.</div>
             </div>
-          </div>` : generated ? `
-          <div class="response-area" style="margin-top:1.25rem;display:block">
-            <div class="response-header">📄 AI-Generated Lesson Plan</div>
-            <div class="response-body" id="reflect-output">${escHtml(generated)}</div>
-          </div>` : `
-          <div class="callout info" style="margin-top:1.25rem">
-            <div class="callout-icon">📄</div>
-            <div class="callout-body">Complete the Full Prompt Practice step first to see your generated lesson plan here.</div>
-          </div>`}
+          </div>` : ''}
+      </div>
+
+      <div class="sr-output-panel content-card">
+        ${renderReflectionOutputPanel()}
       </div>
     </div>`;
 }
 
-function toggleReflectionOption(qi, oi) {
-  if (!state.reflectionAnswers[qi]) {
-    state.reflectionAnswers[qi] = { selected: [], other: '' };
-  }
-  const sel = state.reflectionAnswers[qi].selected;
-  const idx = sel.indexOf(oi);
-  if (idx === -1) sel.push(oi);
-  else sel.splice(idx, 1);
-  document.getElementById('app-main').innerHTML = renderStep();
+function renderReflectionQuestion(q, qi, totalQ) {
+  const saved = state.reflectionAnswers[qi] || '';
+  const hasAnswer = saved.trim().length > 0;
+  const isLast = qi === totalQ - 1;
+
+  const dots = Array.from({ length: totalQ }, (_, i) =>
+    `<div class="sr-q-dot ${i < qi ? 'done' : i === qi ? 'active' : ''}"></div>`
+  ).join('');
+
+  return `
+    <div class="sr-q-header">
+      <span class="sr-q-counter">Question ${qi + 1} of ${totalQ}</span>
+      <div class="sr-q-dots">${dots}</div>
+    </div>
+    <div class="sr-q-num">${q.num}</div>
+    <div class="sr-q-text">${escHtml(q.question)}</div>
+    ${q.hint ? `<div class="faded-tip" style="margin-bottom:0.75rem">💡 ${escHtml(q.hint)}</div>` : ''}
+    ${q.starter ? `
+      <div class="callout info" style="margin-bottom:0.75rem">
+        <div class="callout-icon">✏️</div>
+        <div class="callout-body">
+          <strong>Complete the sentence:</strong><br>
+          <em>${escHtml(q.starter)}</em>
+        </div>
+      </div>` : ''}
+    <textarea class="prompt-textarea" id="sr-q-textarea"
+      placeholder="${q.starter ? escAttr(q.starter) : 'Write your response here…'}"
+      oninput="saveReflectionAnswer(${qi}, this.value)"
+      style="margin-top:0;min-height:100px">${escHtml(saved)}</textarea>
+    <div class="sr-q-nav">
+      <button id="reflection-next-btn" class="btn-nav primary"
+        onclick="advanceReflectionQuestion()"
+        ${hasAnswer ? '' : 'disabled'}>
+        ${isLast ? 'Done ✓' : 'Next Question →'}
+      </button>
+    </div>`;
+}
+
+function advanceReflectionQuestion() {
+  Tracker.click('reflection_next_question');
+  state.reflectionCurrentQ = (state.reflectionCurrentQ || 0) + 1;
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const step = mod?.steps_data[state.stepIndex];
+  if (!step) return;
+  const totalQ = step.questions.length;
+  const qi = state.reflectionCurrentQ;
+  const area = document.getElementById('reflection-q-area');
+  if (!area) return;
+  area.innerHTML = qi >= totalQ
+    ? `<div class="callout success"><div class="callout-icon">✅</div><div class="callout-body"><strong>All questions answered!</strong> Edit your prompt below and regenerate to see how changes affect the output.</div></div>`
+    : renderReflectionQuestion(step.questions[qi], qi, totalQ);
+}
+
+function saveReflectionAnswer(qi, value) {
+  state.reflectionAnswers[qi] = value;
+  const nextBtn = document.getElementById('reflection-next-btn');
+  if (nextBtn) nextBtn.disabled = !value.trim();
 }
 
 function updateReflectionField(key, value) {
@@ -1390,12 +1581,6 @@ function updateReflectionField(key, value) {
   // No re-render — just save to state (avoids focus loss)
 }
 
-function saveReflectionOther(qi, value) {
-  if (!state.reflectionAnswers[qi]) {
-    state.reflectionAnswers[qi] = { selected: [], other: '' };
-  }
-  state.reflectionAnswers[qi].other = value;
-}
 
 async function regenReflection() {
   Tracker.click('reflect_regenerate');
@@ -1445,12 +1630,69 @@ async function regenReflection() {
   state.reflectionGibberish = false;
   if (btn) { btn.innerHTML = `Regenerating… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
 
+  // Detect which fields changed compared to previous prompt values
+  const prevValues = state.reflectionPrevPromptValues || {};
+  const curValues  = state.reflectionEditValues || state.fullPracticeValues || {};
+  const fieldLabels = {
+    goal: 'Desired Results', context: 'Learner & Context',
+    task: 'Evidence of Learning', constraints: 'Instructional Plan', output: 'Output Requirements'
+  };
+  const changedFields = Object.keys(fieldLabels)
+    .filter(k => (curValues[k] || '').trim() !== (prevValues[k] || '').trim())
+    .map(k => ({ name: fieldLabels[k], oldVal: (prevValues[k] || '').trim(), newVal: (curValues[k] || '').trim() }));
+
+  if (state.fullPracticeGenerated) {
+    state.reflectionPrevGenerated = state.fullPracticeGenerated;
+  }
+  // Snapshot current prompt values for next comparison
+  state.reflectionPrevPromptValues = { ...curValues };
+
   try {
     state.fullPracticeGenerated = await API.generate(prompt, step.systemPrompt);
   } catch (err) {
     state.fullPracticeGenerated = `Error generating output: ${err.message}`;
   }
-  document.getElementById('app-main').innerHTML = renderStep();
+
+  // Reset highlight state
+  state.reflectionHighlightPhrases = [];
+  state.reflectionHighlightFields  = [];
+  state.reflectionShowDiff = false;
+
+  if (state.reflectionPrevGenerated && changedFields.length > 0) {
+    try {
+      const hlResult = await API.highlight(changedFields, state.fullPracticeGenerated);
+      console.log('[highlight] API result:', hlResult);
+      let phrases = hlResult.phrases || [];
+
+      // Fallback: if AI returned no phrases, extract key terms from changed field values
+      if (phrases.length === 0) {
+        const stopwords = new Set(['about','after','again','also','another','because','before','could','every',
+          'from','have','into','just','like','more','most','much','need','only','other','over',
+          'should','some','that','their','them','then','there','these','they','this','those',
+          'through','time','very','well','were','what','when','which','while','will','with','your']);
+        phrases = changedFields.flatMap(f => {
+          const words = (f.newVal || '').split(/\W+/).filter(w => w.length > 6 && !stopwords.has(w.toLowerCase()));
+          // Return up to 4 unique significant words as single-word "phrases"
+          return [...new Set(words.map(w => w.toLowerCase()))].slice(0, 4);
+        });
+        console.log('[highlight] Fallback keyword phrases:', phrases);
+      }
+
+      state.reflectionHighlightPhrases = phrases;
+      state.reflectionHighlightFields  = hlResult.changedFieldNames || changedFields.map(f => f.name);
+      state.reflectionShowDiff = phrases.length > 0;
+    } catch (err) {
+      console.error('[highlight] API call failed:', err);
+    }
+  }
+
+  const outputPanel = document.querySelector('.sr-output-panel');
+  if (outputPanel) {
+    outputPanel.innerHTML = renderReflectionOutputPanel();
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Regenerate Output'; }
+  } else {
+    document.getElementById('app-main').innerHTML = renderStep();
+  }
 }
 
 /* ── POST-TEST ──────────────────────────────────────────── */
@@ -1465,7 +1707,7 @@ function renderPosttest(step) {
     // Score comparison
     if (preEval) {
       const preScore = preEval.total || 0;
-      const postScore = evalResult.total || 0;
+      const postScore = evalResult.total_score || 0;
       const diff = postScore - preScore;
       const diffText = diff > 0 ? `+${diff}` : `${diff}`;
       const diffColor = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-secondary)';
@@ -1511,7 +1753,7 @@ function renderPosttest(step) {
       <p style="margin-bottom:1rem">${escHtml(step.instruction)}</p>
       <div class="scenario-box">
         <div class="scenario-box-label">Scenario</div>
-        <p>${escHtml(step.scenario)}</p>
+        ${renderScenario(step.scenario)}
       </div>
       <div class="scenario-box" style="margin-top:0.75rem;border-left-color:var(--warning)">
         <div class="scenario-box-label" style="color:var(--warning)">Source Text</div>
@@ -1550,10 +1792,10 @@ async function submitPosttest() {
     API.logEvent('submit_posttest', { prompt, evalResult: state.posttestEval });
   } catch (err) {
     state.posttestEval = {
-      error: true, total: 0,
-      scores: { goal: 0, context: 0, task: 0, constraints: 0, output: 0 },
-      feedback: { goal: err.message, context: '', task: '', constraints: '', output: '' },
-      overall: 'Could not evaluate. Please check your connection.'
+      error: true, total_score: 0,
+      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      overall_judgment: 'Beginning',
+      revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection.' }
     };
   }
   document.getElementById('app-main').innerHTML = renderStep();

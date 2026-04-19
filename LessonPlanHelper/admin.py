@@ -36,9 +36,10 @@ class ButtonClickAdmin(admin.ModelAdmin):
 
 @admin.register(PromptSubmission)
 class PromptSubmissionAdmin(admin.ModelAdmin):
-    list_display  = ('participant_id', 'submission_type', 'attempt_number',
-                     'total_score', 'score_goal', 'score_context',
-                     'score_task', 'score_constraints', 'score_output', 'submitted_at')
+    list_display  = ('participant_id', 'submission_type', 'attempt_number', 'total_score',
+                     'score_desired_results', 'score_learner_context',
+                     'score_evidence_of_learning', 'score_instructional_plan',
+                     'score_output_requirements', 'submitted_at')
     list_filter   = ('submission_type',)
     search_fields = ('participant_id',)
     ordering      = ('submitted_at',)
