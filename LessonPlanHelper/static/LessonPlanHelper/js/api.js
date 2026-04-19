@@ -46,6 +46,17 @@ const API = {
     return { feedback: data.feedback, score: data.score };
   },
 
+  async highlight(changedFields, newOutput) {
+    const res = await fetch('/api/highlight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ changedFields, newOutput })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Highlight failed');
+    return { phrases: data.phrases || [], changedFieldNames: data.changedFieldNames || [] };
+  },
+
   async logEvent(event, data) {
     try {
       await fetch('/api/log', {

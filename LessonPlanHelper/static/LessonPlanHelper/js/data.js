@@ -17,7 +17,19 @@ const MODULES = [
         type: 'pretest',
         title: 'Pre-Test',
         instruction: 'Read the scenario below and write the exact prompt you would give to an AI to create the lesson plan described.',
-        scenario: "You are an experienced bilingual (English/Mandarin) educator preparing a 45-minute lesson for a Grade 3 class of 24 students with varying levels of English proficiency. Your core objective is to teach students how to describe daily routines using the present simple tense (specifically, first-person 'I' and third-person 'he/she'). The final lesson plan must include a bilingual learning goal, a list of required materials, and a clear in-class activity complete with an assessment component.",
+        scenario: {
+          title: 'Scenario 1: The Seasonal Debate',
+          topic: "What's Your Favorite Season?",
+          learners: 'Level 1/2 (Entering/Emerging) students.',
+          foundational_literacy: 'Phonics and decoding of seasonal vowel teams and multi-syllabic weather words (e.g., S-u-mm-er, Au-tumn, Free-zing, Th-un-der).',
+          grammar_and_syntax: 'Use of subordinating conjunctions (because, since, although) to justify opinions and build complex sentence structures.',
+          vocabulary: {
+            tier_1: ['Sun', 'rain', 'snow', 'hot', 'cold', 'like'],
+            tier_2: ['Preference', 'transition', 'frequent', 'extreme', 'average'],
+            tier_3: ['Solstice', 'equinox', 'precipitation', 'humidity', 'hemisphere']
+          },
+          social_language: 'Polite Disagreement. Practicing phrases like, "I see your point, but I prefer..." to build confidence in academic discussions.'
+        },
         placeholder: 'Write your prompt here — include as much detail as you think is needed…'
       },
 
@@ -27,45 +39,44 @@ const MODULES = [
         title: 'The 5-Part Prompt Framework',
         skippable: true,
         content: `
-          <p>One of the most effective ways to get useful output from an AI is to give it a <strong>structured prompt</strong>. Vague prompts produce generic results. Structured prompts produce targeted, classroom-ready materials.</p>
-          <p>We use a <strong>5-Part Framework</strong>. Each part gives the AI a different type of information it needs.</p>
+          <p>One of the best ways to get a useful lesson plan from AI is to give it a <strong>structured prompt</strong>. Vague prompts often lead to generic lesson ideas. Structured prompts help AI generate materials that are more focused, relevant, and classroom-ready.</p>
+          <p>We use a <strong>5-Part Framework</strong>. Each part gives the AI an important kind of information it needs to create a stronger lesson plan.</p>
           <div class="framework-cards">
             <div class="framework-card goal">
               <div class="fc-label">Part 1</div>
-              <div class="fc-name">Goal</div>
-              <div class="fc-desc">What do you want students to <em>learn or be able to do</em> by the end of the lesson?</div>
-              <div class="fc-example">e.g. "My goal is for students to practise using past simple to describe a past event."</div>
+              <div class="fc-name">Desired Results</div>
+              <div class="fc-desc">What should students learn or be able to do by the end of the lesson? This tells the AI what the lesson is really aiming for. A clear learning goal helps the AI stay focused instead of generating random activities.</div>
+              <div class="fc-example">e.g. "Students will be able to identify the main idea of a short text and support it with two details."</div>
             </div>
             <div class="framework-card context">
               <div class="fc-label">Part 2</div>
-              <div class="fc-name">Context</div>
-              <div class="fc-desc">Who are your students? Grade level, language proficiency, class size, first language backgrounds.</div>
-              <div class="fc-example">e.g. "I teach a Grade 8 ESL class of 28 students at B1 level, with mixed first language backgrounds."</div>
+              <div class="fc-name">Learner &amp; Context</div>
+              <div class="fc-desc">Who are your students, and what teaching situation should the AI know about? Include details like grade level, language proficiency, class size, prior knowledge, or other important classroom conditions.</div>
+              <div class="fc-example">e.g. "I teach a Grade 8 ESL class of 28 students at B1 level. Students have basic experience with nonfiction texts but need vocabulary support."</div>
             </div>
             <div class="framework-card task">
               <div class="fc-label">Part 3</div>
-              <div class="fc-name">Task</div>
-              <div class="fc-desc">What specific thing do you want the AI to <em>create or do</em>?</div>
-              <div class="fc-example">e.g. "Please create a 50-minute lesson plan including a bilingual vocabulary list."</div>
+              <div class="fc-name">Evidence of Learning</div>
+              <div class="fc-desc">How will students show that they met the goal? This helps the AI design a lesson with a meaningful check for understanding, instead of activities that feel disconnected from the goal.</div>
+              <div class="fc-example">e.g. "Include a short exit ticket where students identify the main idea and give two supporting details."</div>
             </div>
             <div class="framework-card constraint">
               <div class="fc-label">Part 4</div>
-              <div class="fc-name">Constraints</div>
-              <div class="fc-desc">What limitations or requirements must the output follow?</div>
-              <div class="fc-example">e.g. "No technology needed. Include pair work. Structure: Hook → Teaching Points → Demo → Summary → Call to Action."</div>
+              <div class="fc-name">Instructional Plan</div>
+              <div class="fc-desc">What kind of lesson flow, activities, or supports should the AI include? You can describe the teaching approach, sequence, grouping, and scaffolds you want in the lesson.</div>
+              <div class="fc-example">e.g. "Start with teacher modeling, then partner practice, then independent work. Include sentence frames and one guided example."</div>
             </div>
             <div class="framework-card output">
               <div class="fc-label">Part 5</div>
-              <div class="fc-name">Output Format</div>
-              <div class="fc-desc">How should the AI structure its response?</div>
-              <div class="fc-example">e.g. "Format as a table: Time | Activity | Materials | Teacher Notes."</div>
+              <div class="fc-name">Output Requirements</div>
+              <div class="fc-desc">What exactly should the AI generate, and how should it be organized? This tells the AI what final product you want, such as a lesson plan, worksheet, bilingual support, or table format.</div>
+              <div class="fc-example">e.g. "Create a 40-minute lesson plan with objective, warm-up, guided practice, pair activity, exit ticket, and materials list. Format it as a table."</div>
             </div>
           </div>
           <div class="callout info">
             <div class="callout-icon">📌</div>
             <div class="callout-body">
-              <strong>Why constraints matter for multilingual classrooms</strong>
-              Without constraints, AI defaults to formal, dominant-language norms. Specifying regional dialects (e.g. Mexican Spanish, Taiwanese Mandarin) and instructional structure forces the AI to produce culturally appropriate, pedagogically sound output.
+              When all five parts work together, the AI has a much clearer picture of what to teach, who the lesson is for, how learning should happen, and what kind of output to produce.
             </div>
           </div>
         `
@@ -75,37 +86,49 @@ const MODULES = [
       {
         type: 'annotated',
         title: 'Worked Example — Daily Routines Lesson Plan',
-        scenario: 'An experienced bilingual (English/Mandarin) educator is preparing a 45-minute lesson for a Grade 3 class of 24 students with varying levels of English proficiency. The core objective is teaching students how to describe daily routines using the present simple tense (specifically, first-person "I" and third-person "he/she"). The final lesson plan must include a bilingual learning goal, a list of required materials, and a clear in-class activity complete with an assessment component.',
+        scenario: {
+          title: 'Scenario 2: The International Cafe',
+          topic: "What's Your Comfort Food?",
+          learners: 'Level 2–3 (Emerging/Developing) students.',
+          foundational_literacy: 'Basic reading comprehension and decoding through simplified, visual recipe cards. Focusing on identifying measurements and instructional verbs.',
+          grammar_and_syntax: 'Sensory verbs (tastes, smells, feels) combined with descriptive adjectives to create vivid imagery in writing.',
+          vocabulary: {
+            tier_1: ['Eat', 'cook', 'bread', 'meat', 'sweet', 'family'],
+            tier_2: ['Authentic', 'significant', 'primary', 'tradition', 'texture'],
+            tier_3: ['Savory', 'palate', 'fermentation', 'carbohydrate', 'nutrient']
+          },
+          social_language: 'Cultural Sharing. Building a space where students feel confident presenting a dish from their heritage to a small group.'
+        },
         components: [
           {
-            type: 'goal',
-            label: 'Goal',
-            text: 'Students will be able to describe daily routines using the present simple tense, focusing on the first-person "I" and third-person "he/she" forms. The lesson must include a bilingual learning goal in English and Mandarin.',
-            explanation: "Not just grammar (present simple) — also specify the exact forms (I vs he/she) to prevent the AI from generating a generic tense overview. Adding the bilingual requirement ensures the AI incorporates the students' first language context."
+            type: 'desired_results',
+            label: 'Desired Results',
+            text: 'By the end of the lesson, students will be able to describe a comfort food from their own life or culture using sensory verbs and descriptive adjectives, and identify key measurements and instructional verbs in a simplified visual recipe card.',
+            explanation: "Naming both the grammar target (sensory verbs + adjectives) and the literacy task (identify measurements and instructional verbs) keeps the AI focused on two concrete, measurable outcomes rather than generating a vague lesson topic."
           },
           {
-            type: 'context',
-            label: 'Context',
-            text: 'Grade 3 class of 24 students. The students are bilingual with Mandarin first language backgrounds and have varying levels of English proficiency. Some students may struggle with verb conjugations between first and third person.',
-            explanation: 'Beyond basic demographics, specifying the first language background and the specific learning struggle (verb conjugation) tells the AI where students will need extra scaffolding. 👉 Tip: Good context = not just "who they are" but "what they struggle with."'
+            type: 'learner_context',
+            label: 'Learner & Context',
+            text: 'Students are Level 2–3 multilingual learners with developing reading comprehension. They benefit from visuals, modeling, sentence frames, and small-group speaking support. Focus areas — Foundational literacy: simplified visual recipe cards, measurements, instructional verbs. Grammar: sensory verbs + descriptive adjectives. Vocabulary: Tier 1 (eat, cook, bread, meat, sweet, family), Tier 2 (authentic, significant, primary, tradition, texture), Tier 3 (savory, palate, fermentation, carbohydrate, nutrient). Social language: respectful cultural sharing in small groups.',
+            explanation: 'Providing the full learner profile — proficiency band, preferred supports, grammar focus, all three vocabulary tiers, and the social language goal — gives the AI everything it needs to calibrate difficulty and scaffold appropriately. 👉 Tip: Good context = not just "who they are" but "what they need."'
           },
           {
-            type: 'task',
-            label: 'Task',
-            text: "Create a 45-minute lesson plan to teach daily routines. Design a lesson that moves from a hook → input/scaffolding → guided practice → an interactive in-class activity → assessment. Ensure the activity allows students to practice speaking or writing about their own routines and a partner's routine.",
-            explanation: 'The task breaks down the lesson structure so the AI creates exactly what you need. It forces the model to include interactive components rather than jumping straight to a worksheet. 👉 Tip: Force the model to reason first — not just output.'
+            type: 'evidence_of_learning',
+            label: 'Evidence of Learning',
+            text: 'Include: a task where students identify 2 measurements and 2 instructional verbs from a recipe card; a small-group speaking task describing their comfort food; a short exit ticket where students write 2–3 sentences using sensory language.',
+            explanation: 'Listing three distinct evidence tasks forces the AI to design activities that actually check understanding, not just fill time. Each task targets a different skill: reading, speaking, and writing. 👉 Tip: Specify the evidence before the activities so the lesson works backwards from proof of learning.'
           },
           {
-            type: 'constraint',
-            label: 'Constraints',
-            text: 'Pedagogical: Use age-appropriate, simple vocabulary suitable for Grade 3. Include visual aids or TPR (Total Physical Response) suggestions. Linguistic: Provide bilingual support (English/Mandarin) where concepts might be confusing. Critical Negative Constraints: Do NOT use overly formal academic language. Do NOT produce a lecture-style lesson. Focus strictly on "daily routines".',
-            explanation: "Constraints are the core of quality control — you are tightening the output space. Negative constraints (Do NOT…) block the model's default, often overly formal or generic behaviours."
+            type: 'instructional_plan',
+            label: 'Instructional Plan',
+            text: 'Use this sequence: warm-up on meaningful foods → teacher modeling with a simplified recipe card → guided practice identifying recipe language → small-group cultural sharing → short independent writing → exit ticket. Include sentence frames and vocabulary support throughout.',
+            explanation: 'A named sequence with explicit scaffolds (sentence frames, vocabulary support) prevents the AI from generating a generic outline. Specifying the cultural sharing step ensures the lesson stays community-centred. 👉 Tip: Force the model to follow your sequence — not invent its own.'
           },
           {
-            type: 'output',
-            label: 'Output Format',
-            text: 'Part 1 — Bilingual Learning Goal. Part 2 — Required Materials List. Part 3 — Step-by-Step Lesson Plan Table: Time | Activity | Teacher Instructions | Student Actions | Materials. Part 4 — In-Class Activity Description. Part 5 — Assessment Checklist.',
-            explanation: 'Naming each deliverable explicitly means the AI cannot skip anything requested in the scenario. A table format is immediately usable. 👉 Tip: Good format = less editing after generation.'
+            type: 'output_requirements',
+            label: 'Output Requirements',
+            text: 'Format the response as a clear lesson-plan table with columns: Objective | Timing | Teacher Actions | Student Actions | Materials | Scaffolds | Speaking Task | Exit Ticket. Keep the lesson practical, culturally responsive, and appropriate for emerging/developing English learners.',
+            explanation: 'Naming every column means the AI cannot collapse or skip any component. Adding the tone requirement (culturally responsive) at the format stage ensures it carries through the entire output. 👉 Tip: Good format = less editing after generation.'
           }
         ]
       },
@@ -114,63 +137,87 @@ const MODULES = [
       {
         type: 'faded',
         title: 'Guided Practice — Complete the Prompt',
-        scenario: 'You are teaching a Grade 7 ESL class of 25 students at A2–B1 level. Their primary language is Spanish. The lesson is 45 minutes and focuses on vocabulary for daily routines. You want the lesson to include a bilingual vocabulary list (English + conversational Mexican Spanish) and at least one communicative speaking activity.',
+        scenario: {
+          title: 'Scenario 3: Digital Citizenship',
+          topic: 'Building a Digital Identity',
+          learners: 'Level 2–3 (Emerging/Developing) students.',
+          foundational_literacy: 'Decoding multi-syllabic digital terms (al-go-rithm, pri-va-cy) using syllable-division rules to improve reading fluency in technical texts.',
+          grammar_and_syntax: 'The imperative mood for giving advice or instructions (e.g., "Set your password," "Do not share personal info").',
+          vocabulary: {
+            tier_1: ['Post', 'phone', 'share', 'secret', 'fake'],
+            tier_2: ['Permanent', 'consequence', 'perspective', 'verification', 'engagement'],
+            tier_3: ['Algorithm', 'anonymity', 'encryption', 'metadata', 'digital footprint']
+          },
+          social_language: 'Handling Online Conflict. Role-playing how to respond to negative comments using assertive, respectful "I" statements.'
+        },
         fields: [
           {
             key: 'goal',
-            label: 'Goal',
-            type: 'goal',
-            prefix: 'My goal is for students to learn and practise vocabulary related to daily routines, so that they can',
-            placeholder: '…e.g. "describe their morning routine in both English and Spanish."',
-            tip: 'Think about what students will be able to do or say by the end of the lesson.'
+            label: 'Desired Results',
+            type: 'desired_results',
+            prefix: 'By the end of this lesson, students will be able to',
+            placeholder: '…e.g. "write a clear 3-step how-to guide using sequence adverbs and imperative verbs, and give a peer one compliment and one suggestion during a script review."',
+            tip: 'Name the specific skill students will produce — what can they write, say, or do? Include the grammar target (sequence adverbs) and any social language goal.'
           },
           {
             key: 'context',
-            label: 'Context',
-            type: 'context',
-            prefix: 'I teach a Grade 7 ESL class of 25 students at A2–B1 level. Their first language is Spanish.',
-            placeholder: '…e.g. "Some students also have exposure to Mandarin at home."',
-            tip: 'Any other details the AI should know? Classroom environment, mixed ability, specific challenges?'
-          },
-          {
-            key: 'task',
-            label: 'Task',
-            type: 'task',
-            prefix: '',
-            placeholder: 'e.g. "Please create a 45-minute lesson plan on daily routines vocabulary for this class."',
-            tip: 'Tell the AI exactly what to create. Be specific about the type of output and lesson duration.'
+            label: 'Learner & Context',
+            type: 'learner_context',
+            prefix: 'My students are Level 3–4 (Developing/Expanding) multilingual learners.',
+            placeholder: '…e.g. "They can write in paragraphs but need support with logical sequencing and academic vocabulary. Some students struggle to give constructive peer feedback respectfully."',
+            tip: 'Add details about what your students can already do, what they find difficult, and any classroom conditions (group size, tech access, mixed abilities) the AI should know.'
           },
           {
             key: 'constraints',
-            label: 'Constraints',
-            type: 'constraint',
-            prefix: 'Include a bilingual vocabulary list in English and conversational Mexican Spanish (not formal Castilian Spanish).',
-            placeholder: '…e.g. "Do not use technology. Include at least one pair speaking activity. Keep vocabulary at A2 level."',
-            tip: 'What must be included or avoided? Activity types, language level, classroom logistics?'
+            label: 'Evidence of Learning',
+            type: 'evidence_of_learning',
+            prefix: 'To show they have met the learning goal, students should',
+            placeholder: '…e.g. "produce a written 3-step how-to guide using at least 3 sequence adverbs, and complete a peer feedback form with one compliment and one suggestion."',
+            tip: 'What will students produce or do that proves they learned? Be specific — name the task, the quantity, and the language feature you expect to see.'
+          },
+          {
+            key: 'task',
+            label: 'Instructional Plan',
+            type: 'instructional_plan',
+            prefix: '',
+            placeholder: 'e.g. "Design a 45-minute lesson that moves from: watching a short how-to video → identifying sequence adverbs → guided writing with a sentence frame scaffold → peer script review using a feedback sentence starter."',
+            tip: 'Give the AI a lesson sequence to follow. Name the activity types and scaffolds you want — don\'t leave the structure up to the AI.'
           },
           {
             key: 'output',
-            label: 'Output Format',
-            type: 'output',
+            label: 'Output Requirements',
+            type: 'output_requirements',
             prefix: '',
-            placeholder: 'e.g. "Format as a table with columns: Time | Activity | Materials | Teacher Notes."',
-            tip: 'Should the AI give a table? A bullet list? Specify the structure so the output is easy to use.'
+            placeholder: 'e.g. "Format as a lesson plan table: Timing | Activity | Teacher Actions | Student Actions | Materials | Scaffolds. Include a separate peer feedback sentence-starter card."',
+            tip: 'Tell the AI exactly what to produce and how to structure it. Name every section or column you need so nothing gets left out.'
           }
         ],
-        systemPrompt: 'You are an expert EFL/ESL curriculum designer for multilingual classrooms. Create detailed, practical, classroom-ready teaching materials. When bilingual vocabulary is requested, use conversational regional dialect (e.g. Mexican Spanish, not formal Castilian), not formal academic language. Follow all constraints and format requirements exactly.'
+        systemPrompt: 'You are an expert EFL/ESL curriculum designer for multilingual classrooms. Create detailed, practical, classroom-ready teaching materials. Follow all constraints and format requirements exactly.'
       },
 
       /* ── Step 4: Full Prompt Practice ──────────────────── */
       {
         type: 'fullpractice',
         title: 'Your Turn — Write a Full Prompt',
-        scenario: 'You are preparing a Grade 6 ESL class of 22 students at A2 level, with mixed first language backgrounds (Mandarin and Arabic). You want to create a 40-minute lesson plan for a communicative speaking activity on the topic "talking about your weekend." The activity should include at least one pair or group speaking task and a simple informal assessment. Include a short bilingual vocabulary list in English and Mandarin.',
+        scenario: {
+          title: 'Scenario 4: The Influencer\'s Guide',
+          topic: 'The Art of the "How-To" Video',
+          learners: 'Level 3–4 (Developing/Expanding) students.',
+          foundational_literacy: 'Summarizing multi-step video tutorials into a clear, 3-step written guide to practice identifying main ideas.',
+          grammar_and_syntax: 'Sequence adverbs (First, Second, Next, Finally) to create logical flow in instructional writing.',
+          vocabulary: {
+            tier_1: ['Show', 'help', 'watch', 'make', 'tell'],
+            tier_2: ['Sequential', 'objective', 'demonstrate', 'modify', 'clarify'],
+            tier_3: ['Transitions', 'aspect ratio', 'frame rate', 'storyboarding', 'post-production']
+          },
+          social_language: 'Feedback. Practicing how to give a peer a compliment and a suggestion during script reviews.'
+        },
         fields: [
-          { key: 'goal', label: 'Goal', type: 'goal', tip: 'What will students be able to do or say by the end of the lesson?' },
-          { key: 'context', label: 'Context', type: 'context', tip: 'Grade, proficiency level, class size, first language backgrounds, any special needs?' },
-          { key: 'task', label: 'Task', type: 'task', tip: 'What exactly should the AI create? Be specific about type and length.' },
-          { key: 'constraints', label: 'Constraints', type: 'constraint', tip: 'What must be included or avoided? Lesson structure, language level, activity types?' },
-          { key: 'output', label: 'Output Format', type: 'output', tip: 'How should the response look? Table? Step-by-step? Specify columns if needed.' }
+          { key: 'goal',        label: 'Desired Results',      type: 'desired_results',      tip: 'What will students be able to write, say, or do by the end of the lesson? Name the grammar target (sequence adverbs) and the social language goal (peer feedback).' },
+          { key: 'context',     label: 'Learner & Context',    type: 'learner_context',       tip: 'Describe your students\' proficiency level, what they can already do, what they struggle with, and any classroom conditions the AI needs to know.' },
+          { key: 'constraints', label: 'Evidence of Learning', type: 'evidence_of_learning',  tip: 'What will students produce that proves they learned? Name the task, the language features you expect, and any peer interaction component.' },
+          { key: 'task',        label: 'Instructional Plan',   type: 'instructional_plan',    tip: 'Give the AI a lesson sequence to follow — name the activity types, timing, and scaffolds. Don\'t leave the structure up to the AI.' },
+          { key: 'output',      label: 'Output Requirements',  type: 'output_requirements',   tip: 'Tell the AI exactly what to produce and how to structure it — table columns, separate resource cards, tone. Name every section you need.' }
         ],
         systemPrompt: 'You are an expert EFL/ESL curriculum designer for multilingual classrooms. Create detailed, practical, classroom-ready lesson plans for language teachers. Include bilingual vocabulary when requested, using conversational rather than academic language. Follow all format and constraint requirements exactly.'
       },
@@ -183,39 +230,24 @@ const MODULES = [
         questions: [
           {
             num: 'Q1',
-            question: 'Looking at the AI output from your full prompt practice — how would you describe it?',
-            options: [
-              'It was mostly usable, but I\'d tweak a few activities or instructions to better fit my class',
-              'The structure looked right, but the language level or content didn\'t quite match my students\' needs',
-              'It needed significant editing — the output felt too generic and didn\'t reflect the context I described'
-            ]
+            question: 'What is one part of the output you would most like to improve?',
+            hint: 'Identify a concrete problem before you revise.'
           },
           {
             num: 'Q2',
-            question: 'Which part of your 5-part prompt do you think had the biggest impact on the output quality?',
-            options: [
-              'Goal — being specific about the learning outcome shaped the whole direction of the lesson',
-              'Constraints — telling the AI what to include and avoid made the output more targeted and realistic',
-              'Output Format — specifying the structure made the response much easier to use directly in class'
-            ]
+            question: 'Which one part of your prompt will you change to improve that?',
+            hint: 'Make a deliberate, single revision choice — don\'t change everything at once. Then edit your prompt on the right and click Regenerate.'
           },
           {
             num: 'Q3',
-            question: 'Was there a part of the prompt you found difficult to write? How did it affect the output?',
-            options: [
-              'Constraints — I wasn\'t sure what to restrict, and the output ended up too open-ended',
-              'Output Format — I left it vague, and the AI\'s layout wasn\'t what I had in mind',
-              'Context — I didn\'t include enough detail, so the output felt too generic'
-            ]
+            question: 'After regenerating, what changed in the new output?',
+            hint: 'Compare the two versions and describe what you notice.'
           },
           {
             num: 'Q4',
-            question: 'What would you change to get a better result from your prompt?',
-            options: [
-              'Be more specific in Constraints — name the exact activity types or lesson structure to follow',
-              'Add more detail to Context — specific first language backgrounds, proficiency nuances, classroom constraints',
-              'Rewrite the Output Format to get a cleaner, more directly usable structure'
-            ]
+            question: 'What does this tell you about how prompt details affect AI output?',
+            hint: 'Form a general principle from the small test you just ran.',
+            starter: 'When I changed ________, the AI output became ________. This suggests that ________.'
           }
         ],
         systemPrompt: 'You are an expert EFL/ESL curriculum designer for multilingual classrooms. Create detailed, practical, classroom-ready lesson plans for language teachers. Include bilingual vocabulary when requested, using conversational rather than academic language. Follow all format and constraint requirements exactly.'
@@ -226,7 +258,19 @@ const MODULES = [
         type: 'posttest',
         title: 'Post-Test',
         instruction: 'Read the scenario and source text below. Write the exact prompt you would give to an AI to create a lesson plan based on this material.',
-        scenario: 'You are teaching a bilingual health and wellness unit to a Grade 7 class of 25 students at B1 level. first language backgrounds include Spanish and Mandarin. You want to create a 45-minute lesson plan using the source text below. The plan should include bilingual vocabulary support and at least one communicative speaking activity.',
+        scenario: {
+          title: 'Scenario 5: The Tech Tug-of-War',
+          topic: 'Screens in School (Benefits vs. Drawbacks)',
+          learners: 'Level 4–5 (Expanding/Bridging) students.',
+          foundational_literacy: 'Reading for Detail. Using the provided text to highlight "benefits" and "drawbacks" to improve analytical reading.',
+          grammar_and_syntax: 'Conjunctions of Contrast (however, on the other hand, whereas) to link opposing viewpoints within a single paragraph.',
+          vocabulary: {
+            tier_1: ['Book', 'laptop', 'fast', 'easy', 'hard'],
+            tier_2: ['Efficient', 'drawback', 'benefit', 'deployment', 'organized'],
+            tier_3: ['Hyper-connected', 'Deployment', 'Pedagogical', 'Synchronous', 'Multimodal']
+          },
+          social_language: 'Negotiation and Compromise. Small group discussions where students must agree on a "balanced" rule for laptop use in the classroom.'
+        },
         sourceText: '"Energy drinks contain high concentrations of caffeine and taurine that temporarily block adenosine receptors in the brain, delaying the onset of sleep. However, this artificial alert state inevitably leads to a physiological \'crash,\' characterized by severe fatigue and a measurable decrease in baseline executive functioning and emotional regulation."',
         placeholder: 'Write your full prompt here, using the 5-part framework (Goal, Context, Task, Constraints, Output Format)…'
       }

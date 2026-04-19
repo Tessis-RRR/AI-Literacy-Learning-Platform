@@ -120,11 +120,16 @@ def log_event(request):
                 participant_id=participant_id,
                 submission_type=sub_type, attempt_number=1,
                 prompt_text=data.get('prompt'),
-                score_goal=s.get('goal'), score_context=s.get('context'),
-                score_task=s.get('task'), score_constraints=s.get('constraints'),
-                score_output=s.get('output'),
-                total_score=(data.get('evalResult') or {}).get('total'),
-                overall_feedback=(data.get('evalResult') or {}).get('overall'),
+                score_desired_results=(s.get('desired_results') or {}).get('score'),
+                score_learner_context=(s.get('learner_context') or {}).get('score'),
+                score_evidence_of_learning=(s.get('evidence_of_learning') or {}).get('score'),
+                score_instructional_plan=(s.get('instructional_plan') or {}).get('score'),
+                score_output_requirements=(s.get('output_requirements') or {}).get('score'),
+                total_score=(data.get('evalResult') or {}).get('total_score'),
+                overall_feedback=(data.get('evalResult') or {}).get('overall_judgment'),
+                strengths=(data.get('evalResult') or {}).get('strengths'),
+                priority_improvements=(data.get('evalResult') or {}).get('priority_improvements'),
+                revision_feedback=(data.get('evalResult') or {}).get('revision_feedback'),
                 submitted_at=now,
             )
 
@@ -134,10 +139,16 @@ def log_event(request):
                 participant_id=participant_id,
                 submission_type='fullpractice', attempt_number=data.get('attempt', 1),
                 prompt_text=data.get('prompt'),
-                score_goal=s.get('goal'), score_context=s.get('context'),
-                score_task=s.get('task'), score_constraints=s.get('constraints'),
-                score_output=s.get('output'), total_score=data.get('total'),
-                overall_feedback=data.get('overall'),
+                score_desired_results=(s.get('desired_results') or {}).get('score'),
+                score_learner_context=(s.get('learner_context') or {}).get('score'),
+                score_evidence_of_learning=(s.get('evidence_of_learning') or {}).get('score'),
+                score_instructional_plan=(s.get('instructional_plan') or {}).get('score'),
+                score_output_requirements=(s.get('output_requirements') or {}).get('score'),
+                total_score=data.get('total_score'),
+                overall_feedback=data.get('overall_judgment'),
+                strengths=data.get('strengths'),
+                priority_improvements=data.get('priority_improvements'),
+                revision_feedback=data.get('revision_feedback'),
                 edited_fields=data.get('editedFields') or [],
                 submitted_at=now,
             )
@@ -198,70 +209,76 @@ def evaluate(request):
     if not client:
         return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
     try:
-        body           = json.loads(request.body)
-        prompt         = body.get('prompt', '')
-        user_typed     = body.get('userTypedParts')
+        body       = json.loads(request.body)
+        prompt     = body.get('prompt', '')
+        user_typed = body.get('userTypedParts')
 
-        features       = extract_features(prompt)
-        features_text  = '\n'.join(f'- {k}: {v}' for k, v in features.items())
+        system_prompt = """You are an experienced teacher with deep lesson planning expertise who also uses AI fluently to create lesson plans. You are training new teachers to collaborate with LLMs/AI.
 
-        system_prompt = f"""You evaluate AI prompts written by language teachers. Return ONLY valid JSON with no markdown or extra text.
+Your job is to score the prompt using the 5-Part Prompt Quality Rubric and provide feedback that helps the learner improve the prompt.
 
-STEP 1 — GIBBERISH CHECK (STRICT)
-Evaluate ONLY the learner-typed portion.
-Mark as gibberish ONLY if:
-- Input is random characters or keyboard mashing (e.g., "asdf", "qwerty")
-- Input is clearly unrelated to teaching or the scenario (e.g., "pizza", "hello", "idk")
-- Input has no interpretable teaching intent
-DO NOT use word count as a rule.
+Evaluate the learner's prompt only based on the information written in the prompt itself. Do not assume missing details. Do not reward intentions that are not explicitly stated.
 
-If gibberish is detected, return ONLY:
-{{"gibberish":true,"scores":{{"goal":0,"context":0,"task":0,"constraints":0,"output":0}},"total":0,"feedback":{{"goal":"","context":"","task":"","constraints":"","output":""}},"overall":"Your input does not look like a teaching prompt. Please write a meaningful teaching prompt based on the scenario."}}
+GIBBERISH CHECK — run this first.
+If the learner-typed input is random characters, keyboard mashing, or clearly unrelated to teaching (e.g. "asdf", "pizza", "idk"), return ONLY:
+{"gibberish":true,"scores":{"desired_results":{"score":0,"reason":""},"learner_context":{"score":0,"reason":""},"evidence_of_learning":{"score":0,"reason":""},"instructional_plan":{"score":0,"reason":""},"output_requirements":{"score":0,"reason":""}},"total_score":0,"overall_judgment":"Beginning","strengths":[],"priority_improvements":[],"revision_feedback":{"keep":[],"add_or_clarify":[],"next_best_revision":"Please write a real teaching prompt based on the scenario."}}
 
-STEP 2 — CONDITION CHECK (MANDATORY, NO SKIPPING)
-The rule engine has already detected these features from the prompt — trust them for detection; use your judgment only for interpretation:
+RUBRIC DIMENSIONS — score each from 0–3.
 
-DETECTED FEATURES:
-{features_text}
+1. desired_results
+Evaluate how clearly the prompt states what students should learn or be able to do by the end of the lesson.
+Strong prompts use student-centered, specific, observable learning goals.
+A topic is not the same as a goal. Teacher action is not the same as student learning.
+3 = clear, student-centered, specific, observable, realistic learning goal
+2 = learning goal is present but somewhat broad, vague, or not fully measurable
+1 = topic or teaching intention is present, but student outcome is unclear
+0 = no meaningful learning goal is stated
 
-Use these features as ground truth for binary conditions. Do NOT re-detect what is already flagged.
+2. learner_context
+Evaluate how well the prompt describes the learners and teaching context.
+Useful context: grade level, language proficiency, class size, prior knowledge, learning needs, first language, time available, classroom constraints.
+3 = multiple relevant learner/context details that meaningfully shape the lesson
+2 = some useful context, but important details are missing
+1 = minimal context with weak guidance
+0 = no meaningful learner or classroom context
 
-STEP 3 — SCORE EACH DIMENSION using ONLY the condition checks below:
+3. evidence_of_learning
+Evaluate how clearly the prompt tells the AI how students will show they met the goal.
+This may include exit ticket, short written response, quiz, discussion product, presentation, or success criteria. Evidence must match the goal.
+3 = clear evidence of learning aligned to the goal
+2 = check for understanding is included, but broad or only partly aligned
+1 = vague mention of assessment without saying what students show
+0 = no evidence of learning is included
 
-DIMENSION 1 — Goal
-Conditions: has_learning_target, has_action_verb (NOT "learn"/"understand"/"know"), has_topic, has_success_criteria
-3 = all TRUE | 2 = learning target + topic TRUE but missing measurable verb OR success criteria | 1 = topic only | 0 = none
+4. instructional_plan
+Evaluate how clearly the prompt describes how the lesson should unfold.
+This may include lesson sequence, teaching approach, grouping, modeling, guided practice, independent practice, scaffolds, differentiation.
+An activity is not the same as an instructional plan.
+3 = clear lesson flow with relevant scaffolds/supports matched to learners
+2 = general lesson flow is present, but broad or incomplete
+1 = one activity or one instructional move is mentioned, but not a full sequence
+0 = no instructional process is specified
 
-DIMENSION 2 — Context
-Conditions: has_grade_or_age, has_proficiency, has_specific_student_detail (prior knowledge / difficulty / learning need / classroom condition — interpret from prompt)
-3 = all TRUE | 2 = grade/proficiency present but no student detail | 1 = vague student mention only | 0 = none
+5. output_requirements
+Evaluate how clearly the prompt tells the AI what to generate and how it should be structured.
+This may include lesson plan, worksheet, vocabulary list, time length, format, required components, materials, tone, or organization.
+3 = deliverable and structure are clearly specified
+2 = deliverable is clear and some requirements are included, but important details are missing
+1 = product is requested, but structure is minimally specified
+0 = requested output is unclear or absent
 
-DIMENSION 3 — Task
-Conditions: has_clear_product, has_time (use has_time from features), component_count ≥ 2 (use component_count from features)
-3 = all TRUE | 2 = product present but missing time OR component_count < 2 | 1 = vague task | 0 = none
+SCORING RULES
+- Score strictly based on what is explicitly written. Do not infer missing details.
+- Use the full range 0–3. Be consistent and rubric-aligned.
+- If a dimension is weak, explain exactly what is missing.
+- Feedback should help the learner revise, not just describe the score.
+- overall_judgment: "Strong" 13-15 | "Proficient" 10-12 | "Developing" 6-9 | "Beginning" 0-5
+- total_score must equal the sum of the five dimension scores.
+- Each reason: 1–3 concise sentences.
+- next_best_revision: one concrete sentence on what to revise first.
 
-DIMENSION 4 — Constraints
-Count ONLY actionable constraints. Ignore vague phrases like "engaging", "clear", "good".
-Types: language level, pedagogical, format, content constraints — interpret from prompt.
-3 = ≥2 actionable constraints | 2 = 1 actionable constraint | 1 = vague preference only | 0 = none
-
-DIMENSION 5 — Output Format
-Conditions: has_structure (use has_headings), has_format_type (use has_bullets or has_table), has_required_elements (interpret from prompt)
-3 = all TRUE | 2 = elements listed but no format type | 1 = general request only | 0 = none
-
-STEP 4 — SCORING RULES
-- Scores MUST come ONLY from condition checks above
-- Do NOT use general impressions
-- If unsure between two scores → ALWAYS choose the LOWER score
-
-STEP 5 — OVERALL FEEDBACK
-- Maximum 100 words total
-- Part 1: what the learner did well (reference actual content from their prompt)
-- Part 2: start with "BUT" — identify 1–2 weakest dimensions, name EXACT missing elements
-- Keep all feedback field values as empty strings
-
-Return ONLY this JSON:
-{{"scores":{{"goal":1,"context":1,"task":1,"constraints":1,"output":1}},"total":5,"feedback":{{"goal":"","context":"","task":"","constraints":"","output":""}},"overall":"..."}}"""
+Return ONLY valid JSON — no markdown, no extra text:
+{"scores":{"desired_results":{"score":0,"reason":""},"learner_context":{"score":0,"reason":""},"evidence_of_learning":{"score":0,"reason":""},"instructional_plan":{"score":0,"reason":""},"output_requirements":{"score":0,"reason":""}},"total_score":0,"overall_judgment":"","strengths":[""],"priority_improvements":[{"dimension":"","why_it_matters":"","how_to_improve":""}],"revision_feedback":{"keep":[""],"add_or_clarify":[""],"next_best_revision":""}}"""
 
         user_content = (
             f'Full prompt to evaluate:\n{prompt}\n\n'
@@ -274,7 +291,7 @@ Return ONLY this JSON:
         response = client.chat.completions.create(
             model=settings.EVAL_MODEL,
             temperature=0,
-            max_tokens=700,
+            max_tokens=900,
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user',   'content': user_content},
@@ -300,11 +317,11 @@ def evaluate_part(request):
         prefix     = body.get('prefix', '')
 
         rubrics = {
-            'goal':        'Does it state what students will learn, use a measurable action verb (not "understand"/"learn"), name a topic, and imply success criteria?',
-            'context':     'Does it specify grade/age, proficiency level, and at least one concrete student detail (prior knowledge, difficulty, learning need)?',
-            'task':        'Does it clearly state what to produce, include a time/duration, and mention at least two components (activities, materials, steps, or assessment)?',
-            'constraints': 'Does it include at least one actionable constraint — language level, pedagogical rule, format rule, or content boundary? Ignore vague words like "engaging".',
-            'output':      'Does it specify structure (sections/headings), a format type (bullets/table/step-by-step), and name the required elements?',
+            'desired_results':     'Does it state a student-centered, specific, observable learning goal using a measurable action verb (not "learn"/"understand")? Is it realistic and clearly outcomes-focused?',
+            'learner_context':     'Does it specify grade/age, language proficiency level, and at least one concrete student detail (prior knowledge, difficulty, learning need, class size, or first language)?',
+            'evidence_of_learning':'Does it describe how students will demonstrate they met the goal — e.g. exit ticket, short written response, quiz, discussion product, or success criteria? Does it match the goal?',
+            'instructional_plan':  'Does it describe a lesson sequence or flow — e.g. modeling, guided practice, independent practice, grouping, scaffolds, or differentiation? One activity alone is not enough.',
+            'output_requirements': 'Does it specify what the AI should produce (lesson plan, worksheet, vocabulary list), how long it should be, and how it should be structured (table, bullets, headings, required sections)?',
         }
 
         full_text = f'{prefix} {field_text}' if prefix else field_text
@@ -337,5 +354,64 @@ Rules:
         )
         result = json.loads(response.choices[0].message.content.strip())
         return JsonResponse({'feedback': result.get('feedback'), 'score': result.get('score')})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── POST /api/highlight ──────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def highlight(request):
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body           = json.loads(request.body)
+        changed_fields = body.get('changedFields', [])  # [{name, oldVal, newVal}, ...]
+        new_output     = body.get('newOutput', '')
+
+        if not changed_fields or not new_output:
+            return JsonResponse({'phrases': [], 'changedFieldNames': []})
+
+        field_names = [f.get('name', '') for f in changed_fields]
+        changes_desc = '\n'.join(
+            f"- {f['name']}: changed from \"{f['oldVal'][:120]}\" to \"{f['newVal'][:120]}\""
+            for f in changed_fields
+        )
+
+        system_prompt = """You are a teaching assistant analyzing how prompt changes affected an AI-generated lesson plan.
+
+Given a list of prompt field changes and the new output, identify 3–6 short verbatim phrases (5–15 words each) from the new output that most directly reflect the prompt changes.
+
+Rules:
+- Return ONLY valid JSON, no markdown.
+- Each phrase must appear verbatim (exact wording) in the new output.
+- Choose phrases from different parts of the output (spread them out).
+- Prefer phrases that are specific, concrete, and clearly connected to the changed fields.
+- Format: {"phrases": ["phrase one", "phrase two", ...]}"""
+
+        user_msg = f"""Prompt field changes:
+{changes_desc}
+
+New output:
+{new_output[:3000]}
+
+Return JSON with 3–6 verbatim phrases from the new output most shaped by these changes."""
+
+        response = client.chat.completions.create(
+            model='gpt-4o-mini',
+            temperature=0,
+            max_tokens=300,
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user',   'content': user_msg},
+            ]
+        )
+        raw = response.choices[0].message.content.strip()
+        result = json.loads(raw)
+        return JsonResponse({
+            'phrases': result.get('phrases', []),
+            'changedFieldNames': field_names
+        })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

@@ -76,23 +76,26 @@ class PromptSubmission(models.Model):
         ('fullpractice', 'Full Practice'),
         ('posttest',     'Posttest'),
     ]
-    participant_id    = models.TextField(null=True, blank=True)
-    submission_type   = models.TextField(choices=TYPES)
-    attempt_number    = models.IntegerField(default=1)
-    prompt_text       = models.TextField(null=True, blank=True)
-    score_goal        = models.IntegerField(null=True, blank=True)
-    score_context     = models.IntegerField(null=True, blank=True)
-    score_task        = models.IntegerField(null=True, blank=True)
-    score_constraints = models.IntegerField(null=True, blank=True)
-    score_output      = models.IntegerField(null=True, blank=True)
-    total_score       = models.IntegerField(null=True, blank=True)
-    overall_feedback  = models.TextField(null=True, blank=True)
-    edited_fields     = ArrayField(models.TextField(), null=True, blank=True)
-    submitted_at      = models.DateTimeField(null=True, blank=True)
+    participant_id           = models.TextField(null=True, blank=True)
+    submission_type          = models.TextField(choices=TYPES)
+    attempt_number           = models.IntegerField(default=1)
+    prompt_text              = models.TextField(null=True, blank=True)
+    score_desired_results    = models.IntegerField(null=True, blank=True)
+    score_learner_context    = models.IntegerField(null=True, blank=True)
+    score_evidence_of_learning = models.IntegerField(null=True, blank=True)
+    score_instructional_plan = models.IntegerField(null=True, blank=True)
+    score_output_requirements = models.IntegerField(null=True, blank=True)
+    total_score              = models.IntegerField(null=True, blank=True)
+    overall_feedback         = models.TextField(null=True, blank=True)
+    strengths                = models.JSONField(null=True, blank=True)
+    priority_improvements    = models.JSONField(null=True, blank=True)
+    revision_feedback        = models.JSONField(null=True, blank=True)
+    edited_fields            = ArrayField(models.TextField(), null=True, blank=True)
+    submitted_at             = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'prompt_submissions'
         ordering = ['submitted_at']
 
     def __str__(self):
-        return f'{self.participant_id} | {self.submission_type} #{self.attempt_number} | {self.total_score}/15'
+        return f'{self.participant_id} | {self.submission_type} #{self.attempt_number} | {self.total_score}/15 ({self.overall_feedback})'
