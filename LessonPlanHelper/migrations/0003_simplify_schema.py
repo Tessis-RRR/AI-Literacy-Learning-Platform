@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("LessonPlanHelper", "0002_analysis_views"),
+        ("LessonPlanHelper", "0001_initial"),
     ]
 
     operations = [
