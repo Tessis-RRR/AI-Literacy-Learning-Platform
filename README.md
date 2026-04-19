@@ -111,70 +111,123 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 
 ---
 
-## Tech Stack
+## Local Setup (Step-by-Step)
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Vanilla JS, HTML5, CSS3 (no framework) |
-| Backend | Node.js + Express |
-| AI | OpenAI API via `/api/generate` and `/api/evaluate` |
-| Styling | Custom CSS design system with CSS variables |
-| Storage | `localStorage` for session progress |
+### Prerequisites
 
-### API endpoints
-
-- `POST /api/generate` — generates lesson plan content from a prompt; model set via `GENERATE_MODEL` in `.env`
-- `POST /api/evaluate` — scores a prompt using the hybrid rule + LLM pipeline; returns JSON with dimension scores (0–3), bar chart data, and overall feedback
+- **Python 3.11+** — check with `python --version`
+- **Docker Desktop** — download at https://www.docker.com/products/docker-desktop  
+  Docker runs the PostgreSQL database so you don't need to install it manually.
 
 ---
 
-## Project Structure
+### Step 1 — Clone the repo
 
-```
-/
-├── server.js              # Express server + OpenAI API endpoints + rule engine
-├── package.json
-├── .env                   # API key and model config (not committed)
-├── rule&LLMPipeline.md    # Evaluation pipeline specification
-├── Teaching Plan Draft.md # Full teaching plan specification
-└── public/
-    ├── index.html         # Single HTML shell
-    ├── js/
-    │   ├── data.js        # All module content and step definitions
-    │   ├── app.js         # App state, rendering, event handlers, score bar chart
-    │   └── api.js         # Fetch wrappers for /api/generate and /api/evaluate
-    └── css/
-        └── styles.css     # Complete design system
+```bash
+git clone <repo-url>
+cd <repo-folder>
 ```
 
 ---
 
-## Setup
+### Step 2 — Create your `.env` file
 
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
+Copy the example file and fill in your OpenAI key:
 
-2. **Configure `.env`**
-   ```
-   OPENAI_API_KEY=your_key_here
-   GENERATE_MODEL=gpt-4o
-   EVAL_MODEL=gpt-4o
-   PORT=3000
-   ```
-   To use a cheaper/faster eval model, set `EVAL_MODEL=gpt-4o-mini`.
+```bash
+cp .env.example .env
+```
 
-3. **Start the server**
-   ```bash
-   npm start
-   ```
-   or with auto-reload:
-   ```bash
-   npm run dev
-   ```
+Open `.env` and replace `your_openai_api_key_here` with your actual key. Leave everything else as-is for local dev.
 
-4. **Open** `http://localhost:3000`
+```
+DJANGO_SECRET_KEY=dev-only-insecure-key-change-in-production
+OPENAI_API_KEY=sk-...          ← paste your key here
+DATABASE_URL=postgresql://promptcraft:promptcraft@127.0.0.1:5433/promptcraft
+GENERATE_MODEL=gpt-4o
+EVAL_MODEL=gpt-4o
+DEBUG=True
+ALLOWED_HOSTS=localhost 127.0.0.1
+```
+
+---
+
+### Step 3 — Install Python dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+> If you use a virtual environment (recommended):
+> ```bash
+> python -m venv venv
+> source venv/bin/activate      # Mac/Linux
+> venv\Scripts\activate         # Windows
+> pip install -r requirements.txt
+> ```
+
+---
+
+### Step 4 — Start Docker Desktop
+
+Open **Docker Desktop** from your Applications folder (Mac) or Start Menu (Windows) and wait until it shows **"Docker Desktop is running"** in the menu bar / taskbar.
+
+> Docker Desktop must be running before the next step. You only need to do this once per machine restart.
+
+---
+
+### Step 5 — Start the database
+
+In your terminal, run:
+
+```bash
+docker-compose up -d db
+```
+
+This starts a PostgreSQL database in the background on port 5433. You should see:
+
+```
+✔ Container new-db-1  Started
+```
+
+To stop the database later: `docker-compose down`
+
+---
+
+### Step 6 — Apply database migrations
+
+```bash
+python manage.py migrate
+```
+
+This sets up all the tables. You only need to run this once (or after pulling new migrations).
+
+---
+
+### Step 7 — Start the Django server
+
+```bash
+python manage.py runserver
+```
+
+You should see:
+
+```
+Starting development server at http://127.0.0.1:8000/
+```
+
+**Open** http://localhost:8000 in your browser.
+
+---
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `Cannot connect to the Docker daemon` | Docker Desktop isn't running — open it and wait for it to start |
+| `connection to server at "127.0.0.1", port 5433 failed` | Run `docker-compose up -d db` first |
+| `ModuleNotFoundError` | Run `pip install -r requirements.txt` (make sure your venv is activated) |
+| Port 8000 already in use | Run `python manage.py runserver 8080` and open http://localhost:8080 |
 
 ---
 
@@ -188,3 +241,4 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 - **Back-and-forth editing** — faded example, full practice, and reflection all allow editing and resubmitting
 - **Branching with transparency** — learners who skip the intro are told what they skipped and can review it at any time
 - **Parallel API calls** — full practice runs `evaluate` and `generate` simultaneously for faster feedback
+
