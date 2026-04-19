@@ -1,6 +1,9 @@
 # Secrets
 .env
 
+# Python
+.venv/
+
 # Django
 db.sqlite3
 staticfiles/

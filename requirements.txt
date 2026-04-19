@@ -1,7 +1,14 @@
-django>=5.2,<6.0
-whitenoise>=6.12
-openai>=2.8
-python-dotenv>=0.21
-dj-database-url>=3.1
-psycopg2-binary>=2.9
-gunicorn>=25.1
+# Web framework & ASGI/WSGI server
+django>=5.2.13,<6.0
+whitenoise>=6.12,<7.0
+gunicorn>=25.3,<26.0
+
+# Database (PostgreSQL URL parsing + driver; models use postgres-only fields)
+dj-database-url>=3.1,<4.0
+psycopg2-binary>=2.9.11,<3.0
+
+# OpenAI API (lesson generation & rubric evaluation)
+openai>=2.32,<3.0
+
+# Load .env in development / deployment
+python-dotenv>=1.0,<2.0
