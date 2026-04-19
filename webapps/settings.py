@@ -3,9 +3,9 @@ import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Always load .env from project root (not only when cwd is the repo)
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-insecure-key-change-in-production')
 
@@ -75,6 +75,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 OPENAI_API_KEY   = os.environ.get('OPENAI_API_KEY', '')
 GENERATE_MODEL   = os.environ.get('GENERATE_MODEL', 'gpt-4o')
 EVAL_MODEL       = os.environ.get('EVAL_MODEL', 'gpt-4o')
+# Max completion tokens for /api/generate (learner lesson output). API requires a cap; 16k matches typical gpt-4o output ceiling.
+try:
+    GENERATE_MAX_TOKENS = int(os.environ.get('GENERATE_MAX_TOKENS', '16384'))
+except ValueError:
+    GENERATE_MAX_TOKENS = 16384
 
 # ── Misc ─────────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

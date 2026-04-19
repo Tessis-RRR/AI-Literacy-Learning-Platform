@@ -40,9 +40,9 @@ const state = {
   reflectionGibberish: false,
   reflectionCurrentQ: 0,
   reflectionPrevGenerated: '',
-  reflectionShowDiff: false,
-  reflectionHighlightPhrases: [],
-  reflectionHighlightFields: [],
+  reflectionOutputChunks: [],
+  reflectionSemanticHighlights: [],
+  reflectionMeaningfulHighlightOn: false,
   reflectionPrevPromptValues: null,
   // Post-test
   posttestPrompt: '',
@@ -1388,41 +1388,95 @@ function computeWordDiff(oldText, newText) {
   return html;
 }
 
-function highlightPhrasesInText(text, phrases) {
-  if (!phrases || phrases.length === 0) return escHtml(text);
-  const normalizedPhrases = phrases.map(p => (p || '').toLowerCase().trim()).filter(p => p.length >= 3);
-  const paragraphs = text.split(/\n/);
-  let matchCount = 0;
-  const result = paragraphs.map(para => {
-    const escaped = escHtml(para);
-    if (!para.trim()) return escaped;
-    const paraLow = para.toLowerCase();
-    const matched = normalizedPhrases.some(phrase => paraLow.includes(phrase));
-    if (matched) matchCount++;
-    return matched ? `<span class="highlight-para">${escaped}</span>` : escaped;
-  }).join('\n');
-  console.log(`[highlight] Matched ${matchCount}/${paragraphs.length} lines with phrases:`, normalizedPhrases);
-  return result;
+function buildReflectionPromptText(values) {
+  if (!values) return '';
+  const order = ['goal', 'context', 'task', 'constraints', 'output'];
+  const parts = order.map(k => (values[k] || '').trim()).filter(Boolean);
+  return parts.join('\n\n');
+}
+
+function inferChunkType(text) {
+  const head = (text.split('\n')[0] || '').toLowerCase();
+  if (/^(learning\s+objective|objective|students will|goal)/.test(head)) return 'objective';
+  if (/\b(assessment|exit ticket|evidence of learning|check for understanding)\b/.test(head)) return 'assessment';
+  if (/\b(materials|resources|handout)\b/.test(head)) return 'materials';
+  if (/\b(warm-up|warm up|opening|hook)\b/.test(head)) return 'warmup';
+  if (/\b(main activity|guided practice|independent practice|lesson sequence|procedure)\b/.test(head)) return 'activity';
+  if (/\b(scaffold|differentiation|support|grouping|language support)\b/.test(head)) return 'scaffold';
+  return 'section';
+}
+
+function splitLongTextBlock(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i += 12) {
+    const chunk = lines.slice(i, i + 12).join('\n').trim();
+    if (chunk) out.push(chunk);
+  }
+  return out.length ? out : [text];
+}
+
+function chunkLessonOutput(text) {
+  if (!text || !String(text).trim()) return [];
+  const normalized = String(text).replace(/\r\n/g, '\n').trim();
+  let blocks = normalized.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length === 1 && blocks[0].length > 2500) {
+    blocks = splitLongTextBlock(blocks[0]);
+  }
+  return blocks.map((t, i) => ({
+    id: `c${i}`,
+    type: inferChunkType(t),
+    text: t
+  }));
+}
+
+function renderReflectionChunksHtml(chunks, hlMap, showSemantic) {
+  if (!chunks || chunks.length === 0) return '';
+  return chunks.map(ch => {
+    const h = showSemantic ? hlMap[ch.id] : null;
+    const body = escHtml(ch.text);
+    if (!h) {
+      return `<div class="reflection-chunk" id="reflect-chunk-${escAttr(ch.id)}">${body}</div>`;
+    }
+    const rationale = escAttr(h.rationale || '');
+    const before = h.beforeSummary ? escHtml(h.beforeSummary) : '';
+    const after = h.afterSummary ? escHtml(h.afterSummary) : '';
+    return `
+      <div class="reflection-chunk reflection-chunk--meaningful" id="reflect-chunk-${escAttr(ch.id)}"
+           tabindex="0" title="${rationale}">
+        <span class="reflection-chunk-badge">${escHtml(h.label || 'Meaningful change')}</span>
+        <div class="reflection-chunk-body">${body}</div>
+        <div class="reflection-chunk-popover" role="tooltip">
+          <p class="reflection-chunk-rationale">${escHtml(h.rationale || '')}</p>
+          ${before ? `<p class="reflection-chunk-before"><strong>Before:</strong> ${before}</p>` : ''}
+          ${after ? `<p class="reflection-chunk-before"><strong>After:</strong> ${after}</p>` : ''}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function renderReflectionOutputPanel() {
   const generated = state.fullPracticeGenerated;
-  const phrases   = state.reflectionHighlightPhrases || [];
-  const fields    = state.reflectionHighlightFields  || [];
-  const showHighlight = state.reflectionShowDiff && phrases.length > 0;
-
-  let banner = '';
-  if (showHighlight && fields.length > 0) {
-    banner = `<div class="highlight-banner">
-      ✨ Highlighting sections shaped by your changes to: <strong>${fields.join(', ')}</strong>
-    </div>`;
-  }
-
-  const toggleBtn = (state.reflectionPrevGenerated && generated)
-    ? `<button class="btn-diff-toggle" onclick="toggleReflectionDiff()">
-         ${showHighlight ? '📄 Clean View' : '✨ Show Changes'}
+  let chunks = state.reflectionOutputChunks && state.reflectionOutputChunks.length
+    ? state.reflectionOutputChunks
+    : chunkLessonOutput(generated || '');
+  const highlights = state.reflectionSemanticHighlights || [];
+  const hlMap = Object.fromEntries(highlights.map(h => [h.chunkId, h]));
+  const showSemantic = state.reflectionMeaningfulHighlightOn && highlights.length > 0;
+  const canToggle = state.reflectionPrevGenerated && generated &&
+    !String(generated).startsWith('Error generating');
+  const toggleBtn = canToggle && highlights.length > 0
+    ? `<button type="button" class="btn-diff-toggle" onclick="toggleMeaningfulHighlights()">
+         ${showSemantic ? 'Hide highlights' : 'Highlight meaningful changes'}
        </button>`
     : '';
+
+  let banner = '';
+  if (showSemantic) {
+    banner = `<div class="highlight-banner semantic-highlight-banner">
+      Showing the ${highlights.length} parts of this lesson that shifted most in meaning after your prompt edits (not a word-by-word diff).
+    </div>`;
+  }
 
   let content;
   if (!generated) {
@@ -1430,22 +1484,23 @@ function renderReflectionOutputPanel() {
       <div class="callout-icon">📄</div>
       <div class="callout-body">Complete the Full Prompt Practice step first to see your generated lesson plan here.</div>
     </div>`;
-  } else if (showHighlight) {
-    content = `${banner}<pre class="response-body diff-view" id="reflect-output">${highlightPhrasesInText(generated, phrases)}</pre>`;
+  } else if (chunks.length > 0) {
+    const inner = renderReflectionChunksHtml(chunks, hlMap, showSemantic);
+    content = `${banner}<div class="reflection-output-chunks response-body" id="reflect-output">${inner}</div>`;
   } else {
     content = `<div class="response-body" id="reflect-output" style="margin-top:0.5rem">${escHtml(generated)}</div>`;
   }
 
   return `
-    <div class="reflection-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+    <div class="reflection-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
       <span>📄 AI-Generated Output</span>
       ${toggleBtn}
     </div>
     ${content}`;
 }
 
-function toggleReflectionDiff() {
-  state.reflectionShowDiff = !state.reflectionShowDiff;
+function toggleMeaningfulHighlights() {
+  state.reflectionMeaningfulHighlightOn = !state.reflectionMeaningfulHighlightOn;
   const panel = document.querySelector('.sr-output-panel');
   if (panel) panel.innerHTML = renderReflectionOutputPanel();
 }
@@ -1630,21 +1685,30 @@ async function regenReflection() {
   state.reflectionGibberish = false;
   if (btn) { btn.innerHTML = `Regenerating… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
 
-  // Detect which fields changed compared to previous prompt values
-  const prevValues = state.reflectionPrevPromptValues || {};
+  // Prompt that produced the lesson currently on screen: use last post-regen snapshot when
+  // iterating; before any reflection regen, use fullPracticeValues (that generated FP output).
+  const prevPromptSnapshot = {
+    ...(state.reflectionPrevPromptValues != null
+      ? state.reflectionPrevPromptValues
+      : state.fullPracticeValues || {})
+  };
   const curValues  = state.reflectionEditValues || state.fullPracticeValues || {};
   const fieldLabels = {
-    goal: 'Desired Results', context: 'Learner & Context',
-    task: 'Evidence of Learning', constraints: 'Instructional Plan', output: 'Output Requirements'
+    goal: 'Desired Results',
+    context: 'Learner & Context',
+    constraints: 'Evidence of Learning',
+    task: 'Instructional Plan',
+    output: 'Output Requirements'
   };
   const changedFields = Object.keys(fieldLabels)
-    .filter(k => (curValues[k] || '').trim() !== (prevValues[k] || '').trim())
-    .map(k => ({ name: fieldLabels[k], oldVal: (prevValues[k] || '').trim(), newVal: (curValues[k] || '').trim() }));
+    .filter(k => (curValues[k] || '').trim() !== (prevPromptSnapshot[k] || '').trim())
+    .map(k => ({ name: fieldLabels[k], oldVal: (prevPromptSnapshot[k] || '').trim(), newVal: (curValues[k] || '').trim() }));
 
+  // Always compare the new generation to the output shown *before* this click (iterative:
+  // regen N compares to regen N−1, not the original full-practice lesson).
   if (state.fullPracticeGenerated) {
     state.reflectionPrevGenerated = state.fullPracticeGenerated;
   }
-  // Snapshot current prompt values for next comparison
   state.reflectionPrevPromptValues = { ...curValues };
 
   try {
@@ -1653,36 +1717,30 @@ async function regenReflection() {
     state.fullPracticeGenerated = `Error generating output: ${err.message}`;
   }
 
-  // Reset highlight state
-  state.reflectionHighlightPhrases = [];
-  state.reflectionHighlightFields  = [];
-  state.reflectionShowDiff = false;
+  state.reflectionOutputChunks = chunkLessonOutput(state.fullPracticeGenerated || '');
+  state.reflectionSemanticHighlights = [];
+  state.reflectionMeaningfulHighlightOn = false;
 
-  if (state.reflectionPrevGenerated && changedFields.length > 0) {
+  const previousOutput = state.reflectionPrevGenerated || '';
+  const revisedOutput = state.fullPracticeGenerated || '';
+  const genFailed = String(revisedOutput).startsWith('Error generating');
+  const previousPrompt = buildReflectionPromptText(prevPromptSnapshot);
+  const revisedPrompt = buildReflectionPromptText(curValues);
+
+  if (previousOutput && !genFailed && changedFields.length > 0) {
     try {
-      const hlResult = await API.highlight(changedFields, state.fullPracticeGenerated);
-      console.log('[highlight] API result:', hlResult);
-      let phrases = hlResult.phrases || [];
-
-      // Fallback: if AI returned no phrases, extract key terms from changed field values
-      if (phrases.length === 0) {
-        const stopwords = new Set(['about','after','again','also','another','because','before','could','every',
-          'from','have','into','just','like','more','most','much','need','only','other','over',
-          'should','some','that','their','them','then','there','these','they','this','those',
-          'through','time','very','well','were','what','when','which','while','will','with','your']);
-        phrases = changedFields.flatMap(f => {
-          const words = (f.newVal || '').split(/\W+/).filter(w => w.length > 6 && !stopwords.has(w.toLowerCase()));
-          // Return up to 4 unique significant words as single-word "phrases"
-          return [...new Set(words.map(w => w.toLowerCase()))].slice(0, 4);
-        });
-        console.log('[highlight] Fallback keyword phrases:', phrases);
-      }
-
-      state.reflectionHighlightPhrases = phrases;
-      state.reflectionHighlightFields  = hlResult.changedFieldNames || changedFields.map(f => f.name);
-      state.reflectionShowDiff = phrases.length > 0;
+      const prevChunks = chunkLessonOutput(previousOutput);
+      const hlResult = await API.semanticHighlights({
+        previousPrompt,
+        revisedPrompt,
+        previousOutput,
+        revisedOutput,
+        previousChunks: prevChunks,
+        revisedChunks: state.reflectionOutputChunks
+      });
+      state.reflectionSemanticHighlights = hlResult.highlights || [];
     } catch (err) {
-      console.error('[highlight] API call failed:', err);
+      console.error('[semantic-highlights] API call failed:', err);
     }
   }
 

@@ -1836,6 +1836,78 @@ del.diff-del {
   color: #92400e;
 }
 
+.semantic-highlight-banner {
+  line-height: 1.45;
+}
+
+.reflection-output-chunks {
+  margin-top: 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.reflection-chunk {
+  margin: 0.45rem 0;
+  white-space: pre-wrap;
+}
+
+.reflection-chunk--meaningful {
+  background: #fffbeb;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem 0.6rem;
+  border: 1px solid #fde68a;
+  position: relative;
+  margin: 0.55rem 0;
+  cursor: help;
+}
+
+.reflection-chunk-badge {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #b45309;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+
+.reflection-chunk-body {
+  margin: 0;
+}
+
+.reflection-chunk-popover {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  z-index: 6;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.reflection-chunk-rationale {
+  margin: 0;
+}
+
+.reflection-chunk-before {
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.reflection-chunk--meaningful:hover .reflection-chunk-popover,
+.reflection-chunk--meaningful:focus-within .reflection-chunk-popover {
+  display: block;
+}
+
 /* ── Structured scenario ────────────────────────────────── */
 .scenario-structured { font-size: 0.92rem; line-height: 1.6; }
 .scenario-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.6rem; color: var(--text); }

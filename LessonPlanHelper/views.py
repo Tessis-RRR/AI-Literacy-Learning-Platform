@@ -190,7 +190,7 @@ def generate(request):
 
         response = client.chat.completions.create(
             model=settings.GENERATE_MODEL,
-            max_tokens=1500,
+            max_tokens=settings.GENERATE_MAX_TOKENS,
             messages=[
                 {'role': 'system', 'content': full_system},
                 {'role': 'user',   'content': prompt},
@@ -359,6 +359,25 @@ Rules:
 
 
 # ── POST /api/highlight ──────────────────────────────────────
+# Chunk-based semantic comparison (PromptCraft “meaningful changes”).
+
+def _strip_json_fence(raw):
+    t = (raw or '').strip()
+    if t.startswith('```'):
+        t = re.sub(r'^```\w*\s*', '', t)
+        t = re.sub(r'\s*```$', '', t)
+    return t.strip()
+
+
+def _trim_chunks(chunks, max_each=1000):
+    out = []
+    for c in chunks or []:
+        cid = str((c or {}).get('id') or '')[:48]
+        txt = str((c or {}).get('text') or '')[:max_each]
+        if cid and txt.strip():
+            out.append({'id': cid, 'text': txt})
+    return out
+
 
 @csrf_exempt
 @require_POST
@@ -366,52 +385,102 @@ def highlight(request):
     if not client:
         return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
     try:
-        body           = json.loads(request.body)
-        changed_fields = body.get('changedFields', [])  # [{name, oldVal, newVal}, ...]
-        new_output     = body.get('newOutput', '')
+        body = json.loads(request.body)
 
-        if not changed_fields or not new_output:
-            return JsonResponse({'phrases': [], 'changedFieldNames': []})
+        previous_prompt = body.get('previousPrompt') or ''
+        revised_prompt = body.get('revisedPrompt') or ''
+        previous_output = body.get('previousOutput') or ''
+        revised_output = body.get('revisedOutput') or ''
+        previous_chunks = _trim_chunks(body.get('previousChunks'))
+        revised_chunks = _trim_chunks(body.get('revisedChunks'))
 
-        field_names = [f.get('name', '') for f in changed_fields]
-        changes_desc = '\n'.join(
-            f"- {f['name']}: changed from \"{f['oldVal'][:120]}\" to \"{f['newVal'][:120]}\""
-            for f in changed_fields
-        )
+        if not revised_chunks or not revised_output.strip():
+            return JsonResponse({'highlights': []})
 
-        system_prompt = """You are a teaching assistant analyzing how prompt changes affected an AI-generated lesson plan.
+        valid_ids = {c['id'] for c in revised_chunks}
+        prev_json = json.dumps(previous_chunks, ensure_ascii=False)
+        rev_json = json.dumps(revised_chunks, ensure_ascii=False)
 
-Given a list of prompt field changes and the new output, identify 3–6 short verbatim phrases (5–15 words each) from the new output that most directly reflect the prompt changes.
+        system_prompt = """You compare two AI-generated lesson-plan outputs for language teachers.
+Do not perform word-level or token-level diff.
+The teacher revised their prompt and received a new lesson output.
+
+Identify 2 to 4 chunks in the REVISED output whose MEANING changed the most compared with the previous output — instructional significance, not wording tweaks.
+
+Prioritize: clearer learning goals; better alignment to goals; added or improved scaffolds/supports; clearer or more explicit assessment; better fit to learner context; important structural or pedagogical shifts; meaningful materials, grouping, or language-support changes.
+
+Ignore: tiny wording edits, formatting-only changes, superficial rephrasing.
+
+Return ONLY valid JSON (no markdown fences):
+{"highlights":[{"chunkId":"<id from revised chunk list only>","changeStrength":2,"changeType":"alignment","label":"Short label","rationale":"1-2 sentences.","beforeSummary":"optional","afterSummary":"optional"}]}
 
 Rules:
-- Return ONLY valid JSON, no markdown.
-- Each phrase must appear verbatim (exact wording) in the new output.
-- Choose phrases from different parts of the output (spread them out).
-- Prefer phrases that are specific, concrete, and clearly connected to the changed fields.
-- Format: {"phrases": ["phrase one", "phrase two", ...]}"""
+- chunkId MUST be copied exactly from the revised chunk id list.
+- Return 2 to 4 highlights (or fewer only if fewer than 2 chunks truly qualify).
+- changeStrength: 1 = moderate, 2 = strong, 3 = largest meaningful instructional shift.
+- changeType: one of specificity, alignment, scaffold, assessment, learner_fit, structure, materials, language_support.
+- Labels should be short and user-facing (e.g. "More specific objective", "Added learner support", "Clearer assessment", "Improved alignment")."""
 
-        user_msg = f"""Prompt field changes:
-{changes_desc}
+        user_content = f"""Previous prompt:
+{previous_prompt[:4500]}
 
-New output:
-{new_output[:3000]}
+Revised prompt:
+{revised_prompt[:4500]}
 
-Return JSON with 3–6 verbatim phrases from the new output most shaped by these changes."""
+Previous output (full):
+{previous_output[:6500]}
 
+Revised output (full):
+{revised_output[:6500]}
+
+Previous output chunks (id + text):
+{prev_json}
+
+Revised output chunks (id + text) — use ONLY these ids for chunkId:
+{rev_json}
+
+Return JSON only."""
+
+        model = getattr(settings, 'HIGHLIGHT_MODEL', None) or settings.EVAL_MODEL
         response = client.chat.completions.create(
-            model='gpt-4o-mini',
+            model=model,
             temperature=0,
-            max_tokens=300,
+            max_tokens=1400,
+            response_format={'type': 'json_object'},
             messages=[
                 {'role': 'system', 'content': system_prompt},
-                {'role': 'user',   'content': user_msg},
+                {'role': 'user', 'content': user_content},
             ]
         )
-        raw = response.choices[0].message.content.strip()
+        raw = _strip_json_fence(response.choices[0].message.content)
         result = json.loads(raw)
-        return JsonResponse({
-            'phrases': result.get('phrases', []),
-            'changedFieldNames': field_names
-        })
+        highlights = result.get('highlights') or []
+
+        def _strength(v):
+            try:
+                n = int(v)
+            except (TypeError, ValueError):
+                return 2
+            return max(1, min(3, n))
+
+        cleaned = []
+        for h in highlights:
+            cid = h.get('chunkId') or h.get('chunk_id')
+            if not cid or cid not in valid_ids:
+                continue
+            cleaned.append({
+                'chunkId': cid,
+                'changeStrength': _strength(h.get('changeStrength')),
+                'changeType': str(h.get('changeType') or 'alignment')[:48],
+                'label': str(h.get('label') or 'Meaningful change')[:80],
+                'rationale': str(h.get('rationale') or '')[:520],
+                'beforeSummary': str(h.get('beforeSummary') or '')[:320],
+                'afterSummary': str(h.get('afterSummary') or '')[:320],
+            })
+
+        cleaned.sort(key=lambda x: -x['changeStrength'])
+        cleaned = cleaned[:4]
+
+        return JsonResponse({'highlights': cleaned})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

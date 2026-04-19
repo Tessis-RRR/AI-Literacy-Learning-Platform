@@ -46,15 +46,15 @@ const API = {
     return { feedback: data.feedback, score: data.score };
   },
 
-  async highlight(changedFields, newOutput) {
+  async semanticHighlights(payload) {
     const res = await fetch('/api/highlight', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ changedFields, newOutput })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Highlight failed');
-    return { phrases: data.phrases || [], changedFieldNames: data.changedFieldNames || [] };
+    if (!res.ok) throw new Error(data.error || 'Semantic highlight failed');
+    return { highlights: data.highlights || [] };
   },
 
   async logEvent(event, data) {
