@@ -14,7 +14,7 @@ const Tracker = (() => {
 
   function startStep(moduleId, stepIndex, stepType) {
     _stepStart = Date.now();
-    _stepMeta  = { moduleId, stepIndex, stepType };
+    _stepMeta  = { moduleId, stepIndex, stepType, enteredAt: new Date().toISOString() };
     for (const k in _clicks) delete _clicks[k];
     _edited.clear();
   }

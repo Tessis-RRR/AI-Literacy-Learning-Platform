@@ -8,10 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from openai import OpenAI
-from .models import (
-    LogEvent, Participant, Session, StepTime,
-    PromptSubmission, ButtonClick, AnnotatedDrop, GenerateEvent,
-)
+from .models import Participant, LogEvent, StepTime, ButtonClick, PromptSubmission
 
 # ── OpenAI client ────────────────────────────────────────────
 client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
@@ -90,7 +87,7 @@ def log_event(request):
         ip             = get_client_ip(request)
         now            = timezone.now()
 
-        # ── Raw event log (flat, for audit trail) ────────────
+        # ── Raw audit log ─────────────────────────────────────
         LogEvent.objects.create(
             session_id=session_id, participant_id=participant_id,
             event=event, data=data, ip=ip,
@@ -103,38 +100,24 @@ def log_event(request):
                 defaults={'first_seen_at': now},
             )
 
-        # ── Upsert Session ────────────────────────────────────
-        participant_obj = (
-            Participant.objects.filter(participant_id=participant_id).first()
-            if participant_id else None
-        )
-        session_obj, _ = Session.objects.get_or_create(
-            session_id=session_id,
-            defaults={'participant': participant_obj, 'started_at': now},
-        )
-        if event == 'session_start':
-            session_obj.user_agent = data.get('userAgent')
-            session_obj.screen_w   = data.get('screenW')
-            session_obj.screen_h   = data.get('screenH')
-            if participant_obj and not session_obj.participant:
-                session_obj.participant = participant_obj
-            session_obj.save()
-
         # ── Normalized event routing ──────────────────────────
         if event == 'time_on_step':
+            from datetime import timezone as tz, datetime
+            entered_iso = data.get('enteredAt')
+            entered_at  = datetime.fromisoformat(entered_iso) if entered_iso else None
             StepTime.objects.create(
-                session=session_obj, participant_id=participant_id,
+                participant_id=participant_id,
                 module_id=data.get('moduleId'), step_index=data.get('stepIndex'),
                 step_type=data.get('stepType'),
+                entered_at=entered_at, exited_at=now,
                 duration_seconds=data.get('duration_seconds'),
-                recorded_at=now,
             )
 
         elif event in ('submit_pretest', 'submit_posttest'):
             s = (data.get('evalResult') or {}).get('scores', {})
             sub_type = 'pretest' if event == 'submit_pretest' else 'posttest'
             PromptSubmission.objects.create(
-                session=session_obj, participant_id=participant_id,
+                participant_id=participant_id,
                 submission_type=sub_type, attempt_number=1,
                 prompt_text=data.get('prompt'),
                 score_goal=s.get('goal'), score_context=s.get('context'),
@@ -148,36 +131,24 @@ def log_event(request):
         elif event == 'fullpractice_attempt':
             s = data.get('scores', {})
             PromptSubmission.objects.create(
-                session=session_obj, participant_id=participant_id,
+                participant_id=participant_id,
                 submission_type='fullpractice', attempt_number=data.get('attempt', 1),
+                prompt_text=data.get('prompt'),
                 score_goal=s.get('goal'), score_context=s.get('context'),
                 score_task=s.get('task'), score_constraints=s.get('constraints'),
                 score_output=s.get('output'), total_score=data.get('total'),
+                overall_feedback=data.get('overall'),
                 edited_fields=data.get('editedFields') or [],
                 submitted_at=now,
             )
 
         elif event == 'button_click':
             ButtonClick.objects.create(
-                session=session_obj, participant_id=participant_id,
-                button_name=data.get('button'), total_clicks=data.get('total_clicks'),
+                participant_id=participant_id,
+                button_name=data.get('button'),
+                clicked_at=now,
                 module_id=data.get('moduleId'), step_index=data.get('stepIndex'),
-                step_type=data.get('stepType'), clicked_at=now,
-            )
-
-        elif event == 'annotated_dropped':
-            AnnotatedDrop.objects.create(
-                session=session_obj, participant_id=participant_id,
-                expected_type=data.get('expectedType'),
-                dragged_type=data.get('draggedType'),
-                correct=data.get('correct'), dropped_at=now,
-            )
-
-        elif event == 'generate_prompt':
-            GenerateEvent.objects.create(
-                session=session_obj, participant_id=participant_id,
-                generate_type=data.get('type'), prompt_text=data.get('prompt'),
-                ai_output=data.get('result'), generated_at=now,
+                step_type=data.get('stepType'),
             )
 
         return JsonResponse({'success': True})
