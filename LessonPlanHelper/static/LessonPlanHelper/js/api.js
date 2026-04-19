@@ -1,11 +1,16 @@
+/* Session ID — persists in localStorage across tab closes */
 const getSessionId = () => {
-  let sid = sessionStorage.getItem('promptcraft_session_id');
+  let sid = localStorage.getItem('promptcraft_session_id');
   if (!sid) {
-    sid = 'sess_' + Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11);
-    sessionStorage.setItem('promptcraft_session_id', sid);
+    sid = 'sess_' + Math.random().toString(36).substring(2, 11)
+                  + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('promptcraft_session_id', sid);
   }
   return sid;
 };
+
+/* Participant ID — set externally (e.g. name entry screen) */
+const getParticipantId = () => localStorage.getItem('promptcraft_participant_id') || null;
 
 const API = {
   async generate(prompt, systemPrompt) {
@@ -46,10 +51,15 @@ const API = {
       await fetch('/api/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event, data, sessionId: getSessionId() })
+        body: JSON.stringify({
+          event,
+          data,
+          sessionId:     getSessionId(),
+          participantId: getParticipantId()
+        })
       });
     } catch (_) {
-      // Ignore logging failures silently so they don't block user experience
+      // Ignore logging failures — must never block the user
     }
   }
 };

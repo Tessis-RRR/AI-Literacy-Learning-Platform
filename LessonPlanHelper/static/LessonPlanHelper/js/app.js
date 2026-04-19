@@ -12,6 +12,9 @@ const state = {
   quizChecked: false,
   builderValues: {},
   reflectionValues: {},
+  // Attempt counters (for score trajectory)
+  fullPracticeAttempt: 0,
+  reflectionRegenAttempt: 0,
   // Pre-test
   pretestPrompt: '',
   pretestEval: null,       // { scores, total, feedback, overall }
@@ -78,6 +81,7 @@ function markModuleComplete(moduleId) {
   }
   state.progress[moduleId].completed = true;
   saveProgress();
+  API.logEvent('module_complete', { moduleId });
 }
 function getModuleProgress(moduleId) {
   const mod = MODULES.find(m => m.id === moduleId);
@@ -106,16 +110,21 @@ function navigateDashboard() {
   render();
 }
 function navigateStep(moduleId, stepIndex) {
+  Tracker.endStep();
   state.view = 'step';
   state.moduleId = moduleId;
   state.stepIndex = stepIndex;
   state.quizAnswers = {};
   state.quizChecked = false;
   markStepVisited(moduleId, stepIndex);
-  API.logEvent('navigate_step', { moduleId, stepIndex });
+  const mod = MODULES.find(m => m.id === moduleId);
+  const stepType = mod?.steps_data?.[stepIndex]?.type || 'unknown';
+  Tracker.startStep(moduleId, stepIndex, stepType);
+  API.logEvent('navigate_step', { moduleId, stepIndex, stepType });
   render();
 }
 function nextStep() {
+  Tracker.click('next_step');
   const mod = MODULES.find(m => m.id === state.moduleId);
   if (!mod) return;
 
@@ -135,6 +144,7 @@ function nextStep() {
   }
 }
 function prevStep() {
+  Tracker.click('prev_step');
   if (state.stepIndex > 0) {
     navigateStep(state.moduleId, state.stepIndex - 1);
   }
@@ -160,6 +170,13 @@ function render() {
 function renderHeader() {
   const header = document.getElementById('app-header');
   const pct = totalProgress();
+  const username = getParticipantId();
+  const userBadge = username
+    ? `<div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
+         <span style="font-size:0.8rem;color:var(--text-secondary);font-weight:500">@${username}</span>
+         <button onclick="logout()" style="font-size:0.75rem;padding:0.25rem 0.6rem;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--text-secondary)">Switch</button>
+       </div>`
+    : '';
   if (state.view === 'dashboard') {
     header.classList.remove('hidden');
     header.innerHTML = `
@@ -174,6 +191,7 @@ function renderHeader() {
             <div class="header-progress-bar-fill" style="width:${pct}%"></div>
           </div>
         </div>
+        ${userBadge}
       </div>`;
   } else {
     const mod = MODULES.find(m => m.id === state.moduleId);
@@ -192,6 +210,7 @@ function renderHeader() {
           </div>
         </div>
         <button class="header-back-btn" onclick="navigateDashboard()">← Modules</button>
+        ${userBadge}
       </div>`;
   }
 }
@@ -412,6 +431,7 @@ function renderPretest(step) {
 }
 
 async function submitPretest() {
+  Tracker.click('submit_pretest');
   const input = document.getElementById('pretest-input');
   const btn = document.getElementById('pretest-btn');
   if (!input) return;
@@ -969,11 +989,13 @@ function renderFaded(step) {
 
 function updateFadedPart(key, value) {
   state.fadedValues[key] = value;
+  if (value.trim()) Tracker.fieldEdit('faded_' + key);
   const btn = document.getElementById(`faded-eval-btn-${key}`);
   if (btn) btn.disabled = !value.trim();
 }
 
 async function evaluateFadedPart(key, idx) {
+  Tracker.click('faded_evaluate_' + key);
   const mod  = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
@@ -1021,6 +1043,7 @@ async function evaluateFadedPart(key, idx) {
 }
 
 function nextFadedPart(idx, total) {
+  Tracker.click('faded_next_part');
   const mod  = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
@@ -1188,6 +1211,7 @@ function renderFullPractice(step) {
 
 function updateFullPractice(key, value) {
   state.fullPracticeValues[key] = value;
+  if (value.trim()) Tracker.fieldEdit(key);
 
   const btn = document.getElementById('fp-btn');
   const hasContent = Object.values(state.fullPracticeValues).some(v => v.trim());
@@ -1207,6 +1231,8 @@ function updateFullPractice(key, value) {
 }
 
 async function submitFullPractice() {
+  Tracker.click('submit_fullpractice');
+  state.fullPracticeAttempt = (state.fullPracticeAttempt || 0) + 1;
   const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
@@ -1230,6 +1256,13 @@ async function submitFullPractice() {
   try {
     const evalResult = await API.evaluate(prompt);
     state.fullPracticeEval = evalResult;
+    // Log score trajectory for each attempt
+    API.logEvent('fullpractice_attempt', {
+      attempt:      state.fullPracticeAttempt,
+      scores:       evalResult.scores,
+      total:        evalResult.total,
+      editedFields: Tracker.getEditedFields()
+    });
     if (evalResult.gibberish) {
       state.fullPracticeGenerated = '';
     } else {
@@ -1365,6 +1398,8 @@ function saveReflectionOther(qi, value) {
 }
 
 async function regenReflection() {
+  Tracker.click('reflect_regenerate');
+  state.reflectionRegenAttempt = (state.reflectionRegenAttempt || 0) + 1;
   const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
@@ -1497,6 +1532,7 @@ function renderPosttest(step) {
 }
 
 async function submitPosttest() {
+  Tracker.click('submit_posttest');
   const input = document.getElementById('posttest-input');
   const btn = document.getElementById('posttest-btn');
   if (!input) return;
@@ -1560,6 +1596,7 @@ function selectQuizAnswer(qi, oi) {
 }
 
 function checkAnswers() {
+  Tracker.click('quiz_check_answers');
   state.quizChecked = true;
   API.logEvent('quiz_checked', { answers: state.quizAnswers });
   document.getElementById('app-main').innerHTML = renderStep();
@@ -1580,6 +1617,7 @@ function updateBuilder(key, value) {
 }
 
 async function sendBuilderPrompt() {
+  Tracker.click('builder_send');
   const prompt = buildPromptPreview();
   if (!prompt.trim()) return;
   const responseArea = document.getElementById('builder-response-area');
@@ -1601,6 +1639,7 @@ async function sendBuilderPrompt() {
 
 /* ── Playground handlers ────────────────────────────────── */
 async function sendPlaygroundPrompt() {
+  Tracker.click('playground_send');
   const input = document.getElementById('playground-input');
   const btn = document.getElementById('playground-btn');
   const responseArea = document.getElementById('playground-response-area');
@@ -1633,6 +1672,7 @@ async function sendPlaygroundPrompt() {
 
 /* ── Transfer handlers ──────────────────────────────────── */
 async function sendTransferPrompt() {
+  Tracker.click('transfer_send');
   const input = document.getElementById('transfer-input');
   const btn = document.getElementById('transfer-btn');
   const responseArea = document.getElementById('transfer-response-area');
@@ -1690,7 +1730,83 @@ function escAttr(str) {
 }
 
 /* ── Init ───────────────────────────────────────────────── */
+/* ── Name entry gate ────────────────────────────────────── */
+function renderNameEntry() {
+  document.getElementById('app-header').classList.add('hidden');
+  document.getElementById('app-main').innerHTML = `
+    <div class="landing fade-in" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
+      <div class="content-card" style="max-width:400px;width:100%;text-align:center;padding:2.5rem">
+        <div style="font-size:2.2rem;margin-bottom:1rem">✦</div>
+        <h2 style="margin-bottom:0.4rem;font-size:1.5rem">PromptCraft</h2>
+        <p style="color:var(--text-secondary);margin-bottom:2rem;font-size:0.95rem">
+          Enter a username to begin.<br>
+          Your progress and responses will be saved under this name.
+        </p>
+        <div style="text-align:left;margin-bottom:0.4rem">
+          <label style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em">Username</label>
+        </div>
+        <input
+          id="name-input"
+          type="text"
+          placeholder="e.g. Sarah or P01"
+          autocomplete="off"
+          style="width:100%;padding:0.75rem 1rem;font-size:1rem;border:1.5px solid var(--border);border-radius:8px;outline:none;margin-bottom:1.25rem;box-sizing:border-box;transition:border-color 0.2s"
+          oninput="document.getElementById('name-btn').disabled = !this.value.trim()"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter') confirmName()"
+        />
+        <button
+          id="name-btn"
+          class="btn-start"
+          style="width:100%;padding:0.8rem"
+          disabled
+          onclick="confirmName()">
+          Continue →
+        </button>
+        <p style="margin-top:1.25rem;font-size:0.8rem;color:var(--text-secondary)">
+          Use the same username each time to keep your data together.
+        </p>
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('name-input')?.focus(), 50);
+}
+
+function confirmName() {
+  const input = document.getElementById('name-input');
+  const name = input?.value.trim();
+  if (!name) return;
+  localStorage.setItem('promptcraft_participant_id', name);
+  API.logEvent('session_start', {
+    participantId: name,
+    userAgent:     navigator.userAgent,
+    referrer:      document.referrer,
+    screenW:       screen.width,
+    screenH:       screen.height
+  });
+  render();
+}
+
+function logout() {
+  if (!confirm('Switch user? Your progress is saved and will be restored when you log back in with the same username.')) return;
+  localStorage.removeItem('promptcraft_participant_id');
+  localStorage.removeItem('promptcraft_session_id');
+  renderNameEntry();
+}
+
+/* ── Init ───────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   loadProgress();
-  render();
+  const hasName = !!localStorage.getItem('promptcraft_participant_id');
+  if (!hasName) {
+    renderNameEntry();
+  } else {
+    API.logEvent('session_start', {
+      userAgent: navigator.userAgent,
+      referrer:  document.referrer,
+      screenW:   screen.width,
+      screenH:   screen.height
+    });
+    render();
+  }
 });
