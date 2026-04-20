@@ -456,12 +456,6 @@ function renderPretest(step) {
           Submit for Evaluation →
         </button>` : ''}
       ${evalHtml}
-      ${state.pretestGenerated ? `
-        <div class="response-area" style="margin-top:1.5rem">
-          <div class="response-header">🤖 AI Generated Lesson Plan</div>
-          <div class="response-body">${escHtml(state.pretestGenerated)}</div>
-        </div>
-      ` : ''}
     </div>`;
 }
 
@@ -480,14 +474,10 @@ async function submitPretest() {
   }
 
   try {
-    const [result, generatedPlan] = await Promise.all([
-      API.evaluate(prompt),
-      API.generate(prompt)
-    ]);
+    const result = await API.evaluate(prompt);
     state.pretestEval = result;
-    state.pretestGenerated = generatedPlan;
     if (result.total_score >= 10) state.introSkipped = true;
-    API.logEvent('submit_pretest', { prompt, evalResult: result, generatedPlan });
+    API.logEvent('submit_pretest', { prompt, evalResult: result });
   } catch (err) {
     state.pretestEval = {
       error: true, total_score: 0,
@@ -1845,12 +1835,6 @@ function renderPosttest(step) {
           Regenerate & Re-evaluate (Attempt ${evalsCount + 1} of 3) →
         </button>` : ''}
       ${evalHtml}
-      ${evalResult && evalResult.generatedPlan ? `
-        <div class="response-area" style="margin-top:1.5rem">
-          <div class="response-header">🤖 AI Generated Lesson Plan</div>
-          <div class="response-body" style="font-size:0.95rem">${escHtml(evalResult.generatedPlan)}</div>
-        </div>
-      ` : ''}
     </div>`;
 }
 
@@ -1869,11 +1853,7 @@ async function submitPosttest() {
   }
 
   try {
-    const [result, generatedPlan] = await Promise.all([
-      API.evaluate(prompt),
-      API.generate(prompt)
-    ]);
-    result.generatedPlan = generatedPlan;
+    const result = await API.evaluate(prompt);
     state.posttestEvals = state.posttestEvals || [];
     state.posttestEvals.push(result);
     state.posttestEval = result;
