@@ -615,12 +615,12 @@ input {
   border-color: var(--c-output);
 }
 
-/* New 5-part name aliases — match framework card colors */
+/* 5-part framework type colors */
 .legend-pill.desired_results      { background: var(--c-goal-bg);       color: var(--c-goal);       border-color: var(--c-goal); }
-.legend-pill.learner_context       { background: var(--c-context-bg);    color: var(--c-context);    border-color: var(--c-context); }
-.legend-pill.evidence_of_learning  { background: var(--c-task-bg);       color: #92400E;             border-color: var(--c-task); }
-.legend-pill.instructional_plan    { background: var(--c-constraint-bg); color: var(--danger);       border-color: var(--c-constraint); }
-.legend-pill.output_requirements   { background: var(--c-output-bg);     color: #5B21B6;             border-color: var(--c-output); }
+.legend-pill.learner_context      { background: var(--c-context-bg);    color: var(--c-context);    border-color: var(--c-context); }
+.legend-pill.evidence_of_learning { background: var(--c-task-bg);       color: #92400E;             border-color: var(--c-task); }
+.legend-pill.instructional_plan   { background: var(--c-constraint-bg); color: var(--danger);       border-color: var(--c-constraint); }
+.legend-pill.output_requirements  { background: var(--c-output-bg);     color: #5B21B6;             border-color: var(--c-output); }
 
 .legend-pill[draggable="true"] {
   cursor: grab;

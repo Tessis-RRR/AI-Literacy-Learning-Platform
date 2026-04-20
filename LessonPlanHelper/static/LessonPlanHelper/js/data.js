@@ -52,7 +52,7 @@ const MODULES = [
               <div class="fc-label">Part 2</div>
               <div class="fc-name">Learner &amp; Context</div>
               <div class="fc-desc">Who are your students, and what teaching situation should the AI know about? Include details like grade level, language proficiency, class size, prior knowledge, or other important classroom conditions.</div>
-              <div class="fc-example">e.g. "I teach a Grade 8 ESL class of 28 students at B1 level. Students have basic experience with nonfiction texts but need vocabulary support."</div>
+              <div class="fc-example">e.g. "I teach an ESL class of 20 middle school students at WIDA level 3 (Developing)."</div>
             </div>
             <div class="framework-card task">
               <div class="fc-label">Part 3</div>
@@ -108,7 +108,7 @@ const MODULES = [
           },
           {
             type: 'learner_context',
-            label: 'Learner & Context',
+            label: 'Learner &amp; Context',
             text: 'Students are Level 2–3 multilingual learners with developing reading comprehension. They benefit from visuals, modeling, sentence frames, and small-group speaking support. Focus areas — Foundational literacy: simplified visual recipe cards, measurements, instructional verbs. Grammar: sensory verbs + descriptive adjectives. Vocabulary: Tier 1 (eat, cook, bread, meat, sweet, family), Tier 2 (authentic, significant, primary, tradition, texture), Tier 3 (savory, palate, fermentation, carbohydrate, nutrient). Social language: respectful cultural sharing in small groups.',
             explanation: 'Providing the full learner profile — proficiency band, preferred supports, grammar focus, all three vocabulary tiers, and the social language goal — gives the AI everything it needs to calibrate difficulty and scaffold appropriately. 👉 Tip: Good context = not just "who they are" but "what they need."'
           },
@@ -152,23 +152,23 @@ const MODULES = [
         },
         fields: [
           {
-            key: 'goal',
+            key: 'desired_results',
             label: 'Desired Results',
             type: 'desired_results',
             prefix: '',
-            placeholder: '…e.g. "write a clear 3-step how-to guide using sequence adverbs and imperative verbs, and give a peer one compliment and one suggestion during a script review."',
-            tip: 'Name the specific skill students will produce — what can they write, say, or do? Include the grammar target (sequence adverbs) and any social language goal.'
+            placeholder: '…e.g. "Students will be able to write a clear 3-step how-to guide using sequence adverbs and imperative verbs, and give a peer one compliment and one suggestion during a script review."',
+            tip: 'Name the specific skill students will produce — what can they write, say, or do? Include the grammar target and any social language goal.'
           },
           {
-            key: 'context',
-            label: 'Learner & Context',
+            key: 'learner_context',
+            label: 'Learner &amp; Context',
             type: 'learner_context',
             prefix: 'My students are Level 3–4 (Developing/Expanding) multilingual learners.',
             placeholder: '…e.g. "They can write in paragraphs but need support with logical sequencing and academic vocabulary. Some students struggle to give constructive peer feedback respectfully."',
             tip: 'Add details about what your students can already do, what they find difficult, and any classroom conditions (group size, tech access, mixed abilities) the AI should know.'
           },
           {
-            key: 'constraints',
+            key: 'evidence_of_learning',
             label: 'Evidence of Learning',
             type: 'evidence_of_learning',
             prefix: 'To show they have met the learning goal, students should',
@@ -176,7 +176,7 @@ const MODULES = [
             tip: 'What will students produce or do that proves they learned? Be specific — name the task, the quantity, and the language feature you expect to see.'
           },
           {
-            key: 'task',
+            key: 'instructional_plan',
             label: 'Instructional Plan',
             type: 'instructional_plan',
             prefix: '',
@@ -184,7 +184,7 @@ const MODULES = [
             tip: 'Give the AI a lesson sequence to follow. Name the activity types and scaffolds you want — don\'t leave the structure up to the AI.'
           },
           {
-            key: 'output',
+            key: 'output_requirements',
             label: 'Output Requirements',
             type: 'output_requirements',
             prefix: '',
@@ -213,11 +213,11 @@ const MODULES = [
           social_language: 'Feedback. Practicing how to give a peer a compliment and a suggestion during script reviews.'
         },
         fields: [
-          { key: 'goal',        label: 'Desired Results',      type: 'desired_results',      tip: 'What will students be able to write, say, or do by the end of the lesson? Name the grammar target (sequence adverbs) and the social language goal (peer feedback).' },
-          { key: 'context',     label: 'Learner & Context',    type: 'learner_context',       tip: 'Describe your students\' proficiency level, what they can already do, what they struggle with, and any classroom conditions the AI needs to know.' },
-          { key: 'constraints', label: 'Evidence of Learning', type: 'evidence_of_learning',  tip: 'What will students produce that proves they learned? Name the task, the language features you expect, and any peer interaction component.' },
-          { key: 'task',        label: 'Instructional Plan',   type: 'instructional_plan',    tip: 'Give the AI a lesson sequence to follow — name the activity types, timing, and scaffolds. Don\'t leave the structure up to the AI.' },
-          { key: 'output',      label: 'Output Requirements',  type: 'output_requirements',   tip: 'Tell the AI exactly what to produce and how to structure it — table columns, separate resource cards, tone. Name every section you need.' }
+          { key: 'desired_results',    label: 'Desired Results',      type: 'desired_results',      tip: 'What will students be able to write, say, or do by the end of the lesson? Name the grammar target and the social language goal.' },
+          { key: 'learner_context',    label: 'Learner &amp; Context', type: 'learner_context',      tip: 'Describe your students\' proficiency level, what they can already do, what they struggle with, and any classroom conditions the AI needs to know.' },
+          { key: 'evidence_of_learning', label: 'Evidence of Learning', type: 'evidence_of_learning', tip: 'What will students produce that proves they learned? Name the task, the language features you expect, and any peer interaction component.' },
+          { key: 'instructional_plan', label: 'Instructional Plan',   type: 'instructional_plan',   tip: 'Give the AI a lesson sequence to follow — name the activity types, timing, and scaffolds. Don\'t leave the structure up to the AI.' },
+          { key: 'output_requirements', label: 'Output Requirements',  type: 'output_requirements',  tip: 'Tell the AI exactly what to produce and how to structure it — table columns, separate resource cards, tone. Name every section you need.' }
         ],
         systemPrompt: 'You are an expert EFL/ESL curriculum designer for multilingual classrooms. Create detailed, practical, classroom-ready lesson plans for language teachers. Include bilingual vocabulary when requested, using conversational rather than academic language. Follow all format and constraint requirements exactly.'
       },
