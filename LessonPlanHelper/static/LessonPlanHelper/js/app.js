@@ -456,6 +456,11 @@ function renderPretest(step) {
           Submit for Evaluation →
         </button>` : ''}
       ${evalHtml}
+      ${state.pretestGenerated ? `
+        <div style="margin-top:1.5rem">
+          <div class="playground-section-label">📄 AI Output — based on your prompt</div>
+          <div class="response-body">${escHtml(state.pretestGenerated)}</div>
+        </div>` : ''}
     </div>`;
 }
 
@@ -478,6 +483,9 @@ async function submitPretest() {
     state.pretestEval = result;
     if (result.total_score >= 10) state.introSkipped = true;
     API.logEvent('submit_pretest', { prompt, evalResult: result });
+    if (!result.gibberish) {
+      state.pretestGenerated = await API.generate(prompt);
+    }
   } catch (err) {
     state.pretestEval = {
       error: true, total_score: 0,
@@ -1835,6 +1843,11 @@ function renderPosttest(step) {
           Regenerate & Re-evaluate (Attempt ${evalsCount + 1} of 3) →
         </button>` : ''}
       ${evalHtml}
+      ${state.posttestGenerated ? `
+        <div style="margin-top:1.5rem">
+          <div class="playground-section-label">📄 AI Output — based on your prompt</div>
+          <div class="response-body">${escHtml(state.posttestGenerated)}</div>
+        </div>` : ''}
     </div>`;
 }
 
@@ -1858,6 +1871,9 @@ async function submitPosttest() {
     state.posttestEvals.push(result);
     state.posttestEval = result;
     API.logEvent('submit_posttest', { prompt, evalResult: result, attempt: state.posttestEvals.length });
+    if (!result.gibberish) {
+      state.posttestGenerated = await API.generate(prompt);
+    }
   } catch (err) {
     const errResult = {
       error: true, total_score: 0,
