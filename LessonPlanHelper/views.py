@@ -16,6 +16,24 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else
 
 # ── Helpers ──────────────────────────────────────────────────
 
+def strip_markdown(text):
+    t = text or ''
+    t = re.sub(r'^#{1,6}\s+', '', t, flags=re.MULTILINE)   # headings
+    t = re.sub(r'\*{2,3}(.*?)\*{2,3}', r'\1', t)           # bold / bold-italic
+    t = re.sub(r'_{2,3}(.*?)_{2,3}', r'\1', t)             # __bold__
+    t = re.sub(r'\*(.*?)\*', r'\1', t)                     # *italic*
+    t = re.sub(r'_(.*?)_', r'\1', t)                       # _italic_
+    t = re.sub(r'`{3}.*?`{3}', '', t, flags=re.DOTALL)     # fenced code blocks
+    t = re.sub(r'`([^`]+)`', r'\1', t)                     # inline code
+    t = re.sub(r'^[-*_]{3,}\s*$', '', t, flags=re.MULTILINE)  # horizontal rules
+    t = re.sub(r'^\s*[-*+]\s+', '', t, flags=re.MULTILINE)    # unordered list bullets
+    t = re.sub(r'^\s*\d+\.\s+', '', t, flags=re.MULTILINE)    # ordered list numbers
+    t = re.sub(r'^>\s*', '', t, flags=re.MULTILINE)            # blockquotes
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)             # links
+    t = re.sub(r'\n{3,}', '\n\n', t)                           # excess blank lines
+    return t.strip()
+
+
 def get_client_ip(request):
     forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
     if forwarded:
@@ -176,27 +194,18 @@ def generate(request):
         return JsonResponse(
             {'error': 'OPENAI_API_KEY not configured.'}, status=503)
     try:
-        body         = json.loads(request.body)
-        prompt       = body.get('prompt', '')
-        system_prompt = body.get('systemPrompt') or (
-            'You are a helpful AI assistant for language teachers. '
-            'Provide clear, practical, classroom-ready responses.'
-        )
-        full_system = (
-            system_prompt + '\n\nIMPORTANT: Do not use markdown formatting. '
-            'Do not use **, *, #, ##, or any markdown symbols. '
-            'Use plain text only. Use line breaks and indentation to structure your output.'
-        )
+        body   = json.loads(request.body)
+        prompt = body.get('prompt', '')
 
         response = client.chat.completions.create(
             model=settings.GENERATE_MODEL,
             max_tokens=settings.GENERATE_MAX_TOKENS,
             messages=[
-                {'role': 'system', 'content': full_system},
-                {'role': 'user',   'content': prompt},
+                {'role': 'user', 'content': prompt},
             ]
         )
-        return JsonResponse({'content': response.choices[0].message.content})
+        content = strip_markdown(response.choices[0].message.content)
+        return JsonResponse({'content': content})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
