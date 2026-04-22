@@ -1,22 +1,31 @@
 # ESL Co-Pilot
 
-An interactive web-based learning module that teaches multilingual middle school teachers how to use LLMs to create lesson plans and bilingual teaching materials.
+An interactive web-based learning platform that empowers multilingual and ESL teachers (middle school level) to use LLMs to create evidence-based lesson plans and bilingual teaching materials tailored to their classrooms.
 
 ---
 
 ## Overview
 
 **Target audience:** Multilingual / ESL teachers (middle school level)
-**Duration:** ~30 minutes
-**Goal:** Teachers will be able to write structured AI prompts that generate lesson plans and bilingual teaching materials tailored to their classroom.
+**Platform Scope:** 6 distinct modules covering prompt design, lesson building, and student evaluation.
+**Current Availability:** Module 1 ("Design in Action") is fully playable (~30 minutes).
+
+## Platform Modules
+
+1. **Design in Action** (Available) — Master the 5-part framework for crafting evidence-based lesson plans.
+2. **Lesson Builder** (Coming Soon) — Use the actual tool to generate and refine your daily lesson plans.
+3. **Worksheet Workshop** (Coming Soon) — Learn the strategies for creating effective assignment worksheets.
+4. **Resource Generator** (Coming Soon) — Access the worksheet and rubric generator to build student-ready materials.
+5. **Evaluation Theory** (Coming Soon) — Gain a deep understanding of assessment and evaluation techniques.
+6. **Student Evaluator** (Coming Soon) — Use the evaluation tool to grade and provide feedback on students' homework.
 
 ---
 
-## Module Structure
+## Module 1: Design in Action
 
-The module follows a single linear flow with branching based on pre-test performance:
+This module follows a single linear flow with branching based on pre-test performance:
 
-```
+```text
 Pre-Test (2–5 min)
     │
     ├─ Score ≥ 10/15 ──► [Skip intro, optional review link] ──► Worked Example
@@ -44,12 +53,12 @@ Pre-Test (2–5 min)
 | Step | Type | Description |
 |------|------|-------------|
 | Pre-Test | `pretest` | Write one prompt for a scenario; AI scores it 0–15 against the rubric; ≥10 skips intro |
-| Framework Intro | `info` | The 5-part prompt framework (Goal, Context, Task, Constraints, Output Format); skippable |
-| Worked Example | `annotated` | Grade 3, daily routines — drag-and-drop category matching; blocks update in place on correct match |
-| Faded Example | `faded` | Grade 7 ESL, daily routines — pre-filled prefix sentences + blanks + tips; AI rubric feedback |
-| Full Prompt Practice | `fullpractice` | Grade 6 ESL, speaking activity — blank 5-part form; AI feedback + generated lesson plan; edit & regenerate |
+| Framework Intro | `info` | The 5-part prompt framework (Desired Results, Learner & Context, Evidence of Learning, Instructional Plan, Output Requirements); skippable |
+| Worked Example | `annotated` | Drag-and-drop category matching; blocks update in place on correct match |
+| Faded Example | `faded` | Guided practice with pre-filled prefix sentences + blanks + tips; AI rubric feedback |
+| Full Prompt Practice | `fullpractice` | Blank 5-part form; AI feedback + generated lesson plan; edit & regenerate |
 | Self-Reflection | `selfreflection` | Split screen — 4 multi-select reflection questions (left) + editable prompt & live output (right) |
-| Post-Test | `posttest` | New scenario (health & wellness); AI scores; pre vs. post score comparison shown |
+| Post-Test | `posttest` | New scenario; AI scores; pre vs. post score comparison shown |
 
 ---
 
@@ -59,11 +68,11 @@ Teachers learn to structure every AI prompt with five parts:
 
 | Part | Purpose |
 |------|---------|
-| **Goal** | What students will learn or be able to do |
-| **Context** | Grade, proficiency level, class size, first language backgrounds |
-| **Task** | What the AI should create (type + duration) |
-| **Constraints** | What to include/avoid; lesson structure; language register |
-| **Output Format** | How the response should be structured (table, list, etc.) |
+| **Desired Results** | What should students learn or be able to do by the end of the lesson? |
+| **Learner & Context** | Who are your students, and what teaching situation should the AI know about? |
+| **Evidence of Learning** | How will students show that they met the goal? |
+| **Instructional Plan** | What kind of lesson flow, activities, or supports should the AI include? |
+| **Output Requirements** | What exactly should the AI generate, and how should it be organized? |
 
 ---
 
@@ -73,19 +82,19 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 
 ### Scoring uses a hybrid Rule + LLM pipeline:
 
-1. **Rule engine (JS)** — pre-detects binary signals from the prompt via regex (e.g. `has_time`, `has_proficiency`, `component_count`) before the LLM call
-2. **LLM evaluator** — receives the detected features as ground truth; only interprets ambiguous cases (e.g. "is this a real constraint?") and generates feedback
-3. **Tie-breaking rule** — when unsure between two scores, always choose the lower score
+1. **Rule engine (JS/Python)** — pre-detects binary signals from the prompt via regex (e.g. `has_time`, `has_proficiency`, `component_count`) before the LLM call.
+2. **LLM evaluator** — receives the detected features as ground truth; only interprets ambiguous cases and generates feedback.
+3. **Tie-breaking rule** — when unsure between two scores, always choose the lower score.
 
 ### Rubric dimensions
 
 | Dimension | 0 | 1 | 2 | 3 |
 |-----------|---|---|---|---|
-| **Goal** | Nothing | Topic only | Learning target + topic, but vague verb OR no success criteria | Learning target + measurable action verb + topic + success criteria |
-| **Context** | Nothing | Vague student mention | Grade/proficiency present, no student detail | Grade/age + proficiency + specific student detail |
-| **Task** | Nothing | Vague task | Product present, missing time OR <2 components | Clear product + time/duration + ≥2 components |
-| **Constraints** | Nothing | Vague preference only | 1 actionable constraint | ≥2 actionable constraints |
-| **Output Format** | Nothing | General request only | Elements listed, no format type | Structure + format type + named required elements |
+| **Desired Results** | No meaningful goal | Topic/intention only, no student outcome | Broad/vague goal or not fully measurable | Clear, student-centered, specific, observable learning goal |
+| **Learner Context** | Nothing | Minimal context with weak guidance | Some context, but key details missing | Multiple relevant learner details that shape the lesson |
+| **Evidence of Learning** | Nothing | Vague mention of assessment | Check for understanding included, but partly aligned | Clear evidence of learning aligned to the goal |
+| **Instructional Plan** | Nothing | One activity or instructional move | General flow present, but broad/incomplete | Clear lesson flow with relevant scaffolds matched to learners |
+| **Output Requirements** | Nothing | Product requested, but minimal structure | Deliverable is clear, but key structure details missing | Deliverable and structure are clearly specified |
 
 **Branching threshold:** Pre-test score ≥ 10/15 → skip Framework Intro (with optional review link)
 
@@ -95,19 +104,19 @@ All prompts (pre-test, faded example, full practice, post-test) are scored by AI
 |---------|-------|
 | Model | Configurable via `EVAL_MODEL` in `.env` (default: `gpt-4o`) |
 | Temperature | `0` (deterministic, consistent scoring) |
-| Feedback | One overall feedback block — what's good (black) + "BUT..." improvement (bold) |
+| Feedback | One overall feedback block — what's good + "BUT..." improvement (bold) |
 
 ---
 
-## Scenarios Used
+## Scenarios Used (Module 1)
 
-| Step | Grade | Topic | Languages |
-|------|-------|-------|-----------|
-| Pre-Test | Grade 3, varying proficiency, 24 students | Daily routines — present simple | English + Mandarin |
-| Worked Example | Grade 3, varying proficiency, 24 students | Daily routines — present simple | English + Mandarin |
-| Faded Example | Grade 7, A2–B1, 25 students | Daily routines vocabulary | English + conversational Mexican Spanish |
-| Full Practice | Grade 6, A2, 22 students | Speaking — "talking about your weekend" | English + Mandarin |
-| Post-Test | Grade 7, B1, 25 students | Health & wellness (energy drinks source text) | English + Spanish + Mandarin |
+| Step | Level | Topic | Focus |
+|------|-------|-------|-------|
+| Pre-Test | Level 1/2 (Entering/Emerging) | The Seasonal Debate (What's Your Favorite Season?) | Phonics, subordinating conjunctions |
+| Worked Example | Level 2–3 (Emerging/Developing) | The International Cafe (What's Your Comfort Food?) | Visual recipe cards, sensory verbs |
+| Faded Example | Level 2–3 (Emerging/Developing) | Digital Citizenship (Building a Digital Identity) | Decoding technical terms, imperative mood |
+| Full Practice | Level 3–4 (Developing/Expanding) | The Influencer's Guide (The Art of the "How-To" Video) | Summarizing, sequence adverbs |
+| Post-Test | Level 4–5 (Expanding/Bridging) | The Tech Tug-of-War (Screens in School) | Conjunctions of contrast, reading for detail |
 
 ---
 
@@ -140,7 +149,7 @@ cp .env.example .env
 
 Open `.env` and replace `your_openai_api_key_here` with your actual key. Leave everything else as-is for local dev.
 
-```
+```ini
 DJANGO_SECRET_KEY=dev-only-insecure-key-change-in-production
 OPENAI_API_KEY=sk-...          ← paste your key here
 DATABASE_URL=postgresql://promptcraft:promptcraft@127.0.0.1:5433/promptcraft
@@ -193,7 +202,7 @@ docker-compose up -d db
 
 This starts a PostgreSQL database in the background on port 5433. You should see:
 
-```
+```text
 ✔ Container new-db-1  Started
 ```
 
@@ -227,12 +236,11 @@ python manage.py runserver
 
 You should see:
 
-```
+```text
 Watching for file changes with StatReloader
 Performing system checks...
 
 System check identified no issues (0 silenced).
-April 19, 2026 - 20:01:09
 Django version 5.2.11, using settings 'webapps.settings'
 Starting development server at http://127.0.0.1:8000/
 Quit the server with CONTROL-C.
@@ -271,4 +279,3 @@ docker-compose down
 - **Back-and-forth editing** — faded example, full practice, and reflection all allow editing and resubmitting
 - **Branching with transparency** — learners who skip the intro are told what they skipped and can review it at any time
 - **Parallel API calls** — full practice runs `evaluate` and `generate` simultaneously for faster feedback
-
