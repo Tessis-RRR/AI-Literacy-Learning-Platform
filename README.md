@@ -150,6 +150,13 @@ DEBUG=True
 ALLOWED_HOSTS=localhost 127.0.0.1
 ```
 
+**About the Django Secret Key:**
+- **For local development** (current stage): Use the default key `dev-only-insecure-key-change-in-production`. All teammates can use the same key.
+- **For production deployment**: Generate a unique secure key using:
+  ```bash
+  python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  ```
+
 ---
 
 ### Step 3 — Install Python dependencies
@@ -206,6 +213,14 @@ This sets up all the tables. You only need to run this once (or after pulling ne
 
 ### Step 7 — Start the Django server
 
+First, ensure **Docker Desktop is still running** and the database is active. To start the database if it's not running:
+
+```bash
+docker-compose up -d
+```
+
+Then start the Django development server:
+
 ```bash
 python manage.py runserver
 ```
@@ -213,10 +228,25 @@ python manage.py runserver
 You should see:
 
 ```
+Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified no issues (0 silenced).
+April 19, 2026 - 20:01:09
+Django version 5.2.11, using settings 'webapps.settings'
 Starting development server at http://127.0.0.1:8000/
+Quit the server with CONTROL-C.
 ```
 
-**Open** http://localhost:8000 in your browser.
+**Open** http://127.0.0.1:8000 in your browser to access the application.
+
+To stop the server, press **CONTROL-C** in the terminal.
+
+To stop the database, run:
+
+```bash
+docker-compose down
+```
 
 ---
 

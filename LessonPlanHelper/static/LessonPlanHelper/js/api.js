@@ -13,11 +13,11 @@ const getSessionId = () => {
 const getParticipantId = () => localStorage.getItem('promptcraft_participant_id') || null;
 
 const API = {
-  async generate(prompt, systemPrompt) {
+  async generate(prompt) {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, systemPrompt })
+      body: JSON.stringify({ prompt })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Something went wrong');

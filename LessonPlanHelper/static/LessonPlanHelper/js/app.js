@@ -456,6 +456,11 @@ function renderPretest(step) {
           Submit for Evaluation →
         </button>` : ''}
       ${evalHtml}
+      ${state.pretestGenerated ? `
+        <div style="margin-top:1.5rem">
+          <div class="playground-section-label">📄 AI Output — based on your prompt</div>
+          <div class="response-body">${escHtml(state.pretestGenerated)}</div>
+        </div>` : ''}
     </div>`;
 }
 
@@ -478,6 +483,9 @@ async function submitPretest() {
     state.pretestEval = result;
     if (result.total_score >= 10) state.introSkipped = true;
     API.logEvent('submit_pretest', { prompt, evalResult: result });
+    if (!result.gibberish) {
+      state.pretestGenerated = await API.generate(prompt);
+    }
   } catch (err) {
     state.pretestEval = {
       error: true, total_score: 0,
@@ -856,11 +864,11 @@ function renderBuilder(step) {
 function buildPromptPreview() {
   const v = state.builderValues;
   const parts = [];
-  if (v.context) parts.push(v.context.trim());
-  if (v.goal) parts.push(v.goal.trim());
-  if (v.task) parts.push(v.task.trim());
-  if (v.constraint) parts.push(v.constraint.trim());
-  if (v.output) parts.push(v.output.trim());
+  if (v.desired_results)     parts.push(v.desired_results.trim());
+  if (v.learner_context)     parts.push(v.learner_context.trim());
+  if (v.evidence_of_learning) parts.push(v.evidence_of_learning.trim());
+  if (v.instructional_plan)  parts.push(v.instructional_plan.trim());
+  if (v.output_requirements) parts.push(v.output_requirements.trim());
   return parts.filter(Boolean).join('\n\n');
 }
 
@@ -1306,7 +1314,7 @@ async function submitFullPractice() {
   if (!step) return;
 
   const v = state.fullPracticeValues;
-  const promptParts = [v.goal, v.context, v.task, v.constraints, v.output].filter(p => p?.trim());
+  const promptParts = [v.desired_results, v.learner_context, v.evidence_of_learning, v.instructional_plan, v.output_requirements].filter(p => p?.trim());
   const prompt = promptParts.join('\n\n');
   if (!prompt.trim()) return;
 
@@ -1338,7 +1346,7 @@ async function submitFullPractice() {
     if (evalResult.gibberish) {
       state.fullPracticeGenerated = '';
     } else {
-      state.fullPracticeGenerated = await API.generate(prompt, step.systemPrompt);
+      state.fullPracticeGenerated = await API.generate(prompt);
     }
   } catch (err) {
     state.fullPracticeEval = {
@@ -1390,7 +1398,7 @@ function computeWordDiff(oldText, newText) {
 
 function buildReflectionPromptText(values) {
   if (!values) return '';
-  const order = ['goal', 'context', 'task', 'constraints', 'output'];
+  const order = ['desired_results', 'learner_context', 'evidence_of_learning', 'instructional_plan', 'output_requirements'];
   const parts = order.map(k => (values[k] || '').trim()).filter(Boolean);
   return parts.join('\n\n');
 }
@@ -1524,11 +1532,11 @@ function renderSelfReflection(step) {
 
   const v = state.reflectionEditValues;
   const promptFields = [
-    { key: 'goal',        label: 'Desired Results',      type: 'desired_results' },
-    { key: 'context',     label: 'Learner & Context',    type: 'learner_context' },
-    { key: 'constraints', label: 'Evidence of Learning', type: 'evidence_of_learning' },
-    { key: 'task',        label: 'Instructional Plan',   type: 'instructional_plan' },
-    { key: 'output',      label: 'Output Requirements',  type: 'output_requirements' }
+    { key: 'desired_results',    label: 'Desired Results',      type: 'desired_results' },
+    { key: 'learner_context',    label: 'Learner & Context',    type: 'learner_context' },
+    { key: 'evidence_of_learning', label: 'Evidence of Learning', type: 'evidence_of_learning' },
+    { key: 'instructional_plan', label: 'Instructional Plan',   type: 'instructional_plan' },
+    { key: 'output_requirements', label: 'Output Requirements',  type: 'output_requirements' }
   ].map(f => `
     <div class="right-field">
       <div class="right-field-label">
@@ -1661,7 +1669,7 @@ async function regenReflection() {
   if (!step) return;
 
   const v = state.reflectionEditValues || state.fullPracticeValues;
-  const typedValues = [v.goal, v.context, v.task, v.constraints, v.output].map(s => (s || '').trim()).filter(Boolean);
+  const typedValues = [v.desired_results, v.learner_context, v.evidence_of_learning, v.instructional_plan, v.output_requirements].map(s => (s || '').trim()).filter(Boolean);
   const prompt = typedValues.join('\n\n');
   if (!prompt.trim()) return;
 
@@ -1680,26 +1688,9 @@ async function regenReflection() {
   }
 
   const btn = document.getElementById('reflect-regen-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = `Checking… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
+  if (btn) { btn.disabled = true; btn.innerHTML = `Regenerating… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
 
-  let evalResult;
-  try {
-    evalResult = await API.evaluate(prompt);
-    state.fullPracticeEval = evalResult;
-  } catch (_) {
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Regenerate Output'; }
-    return;
-  }
-
-  if (evalResult.gibberish) {
-    state.reflectionGibberish = true;
-    document.getElementById('app-main').innerHTML = renderStep();
-    return;
-  }
-
-  // Clear any previous gibberish warning and regenerate
   state.reflectionGibberish = false;
-  if (btn) { btn.innerHTML = `Regenerating… <span class="loading-dots"><span></span><span></span><span></span></span>`; }
 
   // Prompt that produced the lesson currently on screen: use last post-regen snapshot when
   // iterating; before any reflection regen, use fullPracticeValues (that generated FP output).
@@ -1710,11 +1701,11 @@ async function regenReflection() {
   };
   const curValues  = state.reflectionEditValues || state.fullPracticeValues || {};
   const fieldLabels = {
-    goal: 'Desired Results',
-    context: 'Learner & Context',
-    constraints: 'Evidence of Learning',
-    task: 'Instructional Plan',
-    output: 'Output Requirements'
+    desired_results:    'Desired Results',
+    learner_context:    'Learner & Context',
+    evidence_of_learning: 'Evidence of Learning',
+    instructional_plan: 'Instructional Plan',
+    output_requirements:'Output Requirements'
   };
   const changedFields = Object.keys(fieldLabels)
     .filter(k => (curValues[k] || '').trim() !== (prevPromptSnapshot[k] || '').trim())
@@ -1728,7 +1719,7 @@ async function regenReflection() {
   state.reflectionPrevPromptValues = { ...curValues };
 
   try {
-    state.fullPracticeGenerated = await API.generate(prompt, step.systemPrompt);
+    state.fullPracticeGenerated = await API.generate(prompt);
   } catch (err) {
     state.fullPracticeGenerated = `Error generating output: ${err.message}`;
   }
@@ -1852,6 +1843,11 @@ function renderPosttest(step) {
           Regenerate & Re-evaluate (Attempt ${evalsCount + 1} of 3) →
         </button>` : ''}
       ${evalHtml}
+      ${state.posttestGenerated ? `
+        <div style="margin-top:1.5rem">
+          <div class="playground-section-label">📄 AI Output — based on your prompt</div>
+          <div class="response-body">${escHtml(state.posttestGenerated)}</div>
+        </div>` : ''}
     </div>`;
 }
 
@@ -1875,6 +1871,9 @@ async function submitPosttest() {
     state.posttestEvals.push(result);
     state.posttestEval = result;
     API.logEvent('submit_posttest', { prompt, evalResult: result, attempt: state.posttestEvals.length });
+    if (!result.gibberish) {
+      state.posttestGenerated = await API.generate(prompt);
+    }
   } catch (err) {
     const errResult = {
       error: true, total_score: 0,
@@ -1959,7 +1958,7 @@ async function sendBuilderPrompt() {
   responseBody.className = 'response-body loading';
   responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
   try {
-    const result = await API.generate(prompt, 'You are an expert EFL/ESL curriculum designer. Create detailed, practical, classroom-ready teaching materials. Follow the format and requirements specified in the prompt.');
+    const result = await API.generate(prompt);
     responseBody.className = 'response-body';
     responseBody.textContent = result;
     API.logEvent('generate_prompt', { type: 'builder', prompt, result });
@@ -1988,7 +1987,7 @@ async function sendPlaygroundPrompt() {
   responseBody.className = 'response-body loading';
   responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
   try {
-    const result = await API.generate(prompt, step?.systemPrompt || '');
+    const result = await API.generate(prompt);
     state[`playground_response_${state.moduleId}_${state.stepIndex}`] = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
@@ -2021,7 +2020,7 @@ async function sendTransferPrompt() {
   responseBody.className = 'response-body loading';
   responseBody.innerHTML = `Generating… <span class="loading-dots"><span></span><span></span><span></span></span>`;
   try {
-    const result = await API.generate(prompt, step?.systemPrompt || '');
+    const result = await API.generate(prompt);
     state.transferResponse = result;
     responseBody.className = 'response-body';
     responseBody.textContent = result;
