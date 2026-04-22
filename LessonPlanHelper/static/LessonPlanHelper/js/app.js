@@ -229,7 +229,7 @@ function renderDashboard() {
       <div class="landing-hero">
         <div class="landing-hero-badge">✦ ACTIVE LEARNING FOR ESL EDUCATORS</div>
         <h1>Welcome to <span>ESL Co-Pilot</span></h1>
-        <p>AI-powered design workspace that coaches ESL teachers through the "learning-by-doing" process of crafting evidence-based, active learning lesson plans.</p>
+        <p>Build your teaching toolkit through action. This workspace moves beyond theory, coaching you through a learning-by-doing process to create high-impact, evidence-based materials for your classroom.</p>
         <div class="landing-stats">
           <div class="landing-stat">
             <span class="landing-stat-value">30</span>
@@ -274,7 +274,7 @@ function renderModuleCard(mod, idx) {
   else { statusLabel = 'Not Started'; statusClass = 'status-not-started'; }
 
   return `
-    <div class="module-card ${completed ? 'completed' : ''} fade-in fade-in-delay-${idx}" onclick="navigateStep(${mod.id}, 0)">
+    <div class="module-card ${completed ? 'completed' : ''} fade-in fade-in-delay-${idx}" ${mod.steps > 0 ? `onclick="navigateStep(${mod.id}, 0)"` : 'style="opacity: 0.6; cursor: not-allowed;"'}>
       <div class="module-card-header">
         <div class="module-card-header-icon">${mod.icon}</div>
         <div class="module-card-header-info">
@@ -1815,7 +1815,7 @@ function renderPosttest(step) {
       <div class="callout success" style="margin-top:1rem">
         <div class="callout-icon">🎉</div>
         <div class="callout-body">
-          <strong>Module complete!</strong> You now have the skills to write structured prompts that generate classroom-ready, culturally appropriate lesson materials. ${evalsCount < 3 ? 'You can revise your prompt and re-evaluate below, or c' : 'C'}lick <strong>Complete Module →</strong> to finish.
+          <strong>Congratulations!</strong> You have successfully completed the first step of your design journey. You now have the framework to craft evidence-based lesson plans that move beyond generic AI output and focus on true active learning. ${evalsCount < 3 ? 'You can revise your prompt and re-evaluate below, or c' : 'C'}lick <strong>Complete Module →</strong> to finish.
         </div>
       </div>`;
   }
@@ -1899,8 +1899,10 @@ function renderComplete() {
       <div class="module-complete">
         <div class="complete-icon">${isLastMod ? '🏆' : '🎉'}</div>
         <h2>${isLastMod ? 'Module Complete!' : `Module ${state.moduleId} Complete!`}</h2>
-        <p>${isLastMod
-      ? 'Congratulations — you have completed ESL Co-Pilot. You now have the skills to write structured prompts that generate high-quality, culturally appropriate lesson materials for your multilingual classroom.'
+        <p>${state.moduleId === 1
+      ? 'Congratulations! You have successfully completed the first step of your design journey. You now have the framework to craft evidence-based lesson plans that move beyond generic AI output and focus on true active learning.'
+      : isLastMod
+      ? 'Congratulations — you have completed ESL Co-Pilot.'
       : `Great work! You have finished "${mod?.title}". You are ready for the next module.`
     }</p>
         ${isLastMod
