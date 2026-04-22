@@ -6,7 +6,7 @@ const MODULES = [
   {
     id: 1,
     title: 'Design in Action',
-    description: 'Master the art of collaborative AI design. Move beyond simple prompts to build evidence-based lesson plans through a guided, hands-on workspace.',
+    description: 'Master the framework for crafting evidence-based lesson plans.',
     icon: '✦',
     duration: '~30 min',
     steps: 7,
@@ -163,7 +163,7 @@ const MODULES = [
             key: 'context',
             label: 'Learner & Context',
             type: 'learner_context',
-            prefix: 'My students are Level 3–4 (Developing/Expanding) multilingual learners.',
+            prefix: 'My students are Level 2–3 (Emerging/developing) multilingual learners.',
             placeholder: '…e.g. "They can write in paragraphs but need support with logical sequencing and academic vocabulary. Some students struggle to give constructive peer feedback respectfully."',
             tip: 'Add details about what your students can already do, what they find difficult, and any classroom conditions (group size, tech access, mixed abilities) the AI should know.'
           },
@@ -283,5 +283,50 @@ const MODULES = [
       }
 
     ]
+  },
+  {
+    id: 2,
+    title: 'Lesson Builder',
+    description: 'Use the actual tool to generate and refine your daily lesson plans.',
+    icon: '🏗️',
+    duration: 'Coming Soon',
+    steps: 0,
+    steps_data: []
+  },
+  {
+    id: 3,
+    title: 'Worksheet Workshop',
+    description: 'Learn the strategies for creating effective assignment worksheets.',
+    icon: '📄',
+    duration: 'Coming Soon',
+    steps: 0,
+    steps_data: []
+  },
+  {
+    id: 4,
+    title: 'Resource Generator',
+    description: 'Access the worksheet and rubric generator to build student-ready materials.',
+    icon: '⚙️',
+    duration: 'Coming Soon',
+    steps: 0,
+    steps_data: []
+  },
+  {
+    id: 5,
+    title: 'Evaluation Theory',
+    description: 'Gain a deep understanding of assessment and evaluation techniques.',
+    icon: '📊',
+    duration: 'Coming Soon',
+    steps: 0,
+    steps_data: []
+  },
+  {
+    id: 6,
+    title: 'Student Evaluator',
+    description: 'Use the evaluation tool to grade and provide feedback on students\' homework.',
+    icon: '📝',
+    duration: 'Coming Soon',
+    steps: 0,
+    steps_data: []
   }
 ];
