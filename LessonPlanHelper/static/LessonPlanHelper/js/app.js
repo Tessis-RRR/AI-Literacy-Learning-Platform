@@ -229,7 +229,7 @@ function renderDashboard() {
       <div class="landing-hero">
         <div class="landing-hero-badge">✦ ACTIVE LEARNING FOR ESL EDUCATORS</div>
         <h1>Welcome to <span>ESL Co-Pilot</span></h1>
-        <p>Build your teaching toolkit through action. This workspace moves beyond theory, coaching you through a learning-by-doing process to create high-impact, evidence-based materials for your classroom.</p>
+        <p>Build your teaching toolkit through action. This workspace moves beyond theory, coaching you through a learning-by-doing process to co-create effective, evidence-based materials with your AI design partner.</p>
         <div class="landing-stats">
           <div class="landing-stat">
             <span class="landing-stat-value">30</span>
@@ -489,7 +489,7 @@ async function submitPretest() {
   } catch (err) {
     state.pretestEval = {
       error: true, total_score: 0,
-      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      scores: { desired_results: { score: 0 }, learner_context: { score: 0 }, evidence_of_learning: { score: 0 }, instructional_plan: { score: 0 }, output_requirements: { score: 0 } },
       overall_judgment: 'Beginning',
       revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection and try again.' }
     };
@@ -513,11 +513,11 @@ function renderEvalResult(evalResult) {
   }
 
   const dimLabels = {
-    desired_results:      'Desired Results',
-    learner_context:      'Learner & Context',
+    desired_results: 'Desired Results',
+    learner_context: 'Learner & Context',
     evidence_of_learning: 'Evidence of Learning',
-    instructional_plan:   'Instructional Plan',
-    output_requirements:  'Output Requirements'
+    instructional_plan: 'Instructional Plan',
+    output_requirements: 'Output Requirements'
   };
   const barColor = s => {
     if (s === 0) return '#dc2626';
@@ -561,7 +561,7 @@ function renderEvalResult(evalResult) {
   // Priority improvements
   const improvementsHtml = (evalResult.priority_improvements || []).length
     ? `<div style="margin-top:1rem"><strong>↑ Priority Improvements:</strong>${(evalResult.priority_improvements || []).slice(0, 3).map(p =>
-        `<div style="margin-top:0.5rem;padding:0.5rem 0.75rem;background:#fff8f0;border-left:3px solid #f97316;border-radius:4px">
+      `<div style="margin-top:0.5rem;padding:0.5rem 0.75rem;background:#fff8f0;border-left:3px solid #f97316;border-radius:4px">
           <strong>${dimLabels[p.dimension] || p.dimension}:</strong> ${p.how_to_improve}
         </div>`).join('')}</div>`
     : '';
@@ -636,11 +636,11 @@ function renderAnnotated(step) {
 
   const types = ['desired_results', 'learner_context', 'evidence_of_learning', 'instructional_plan', 'output_requirements'];
   const labels = {
-    desired_results:      'Desired Results',
-    learner_context:      'Learner & Context',
+    desired_results: 'Desired Results',
+    learner_context: 'Learner & Context',
     evidence_of_learning: 'Evidence of Learning',
-    instructional_plan:   'Instructional Plan',
-    output_requirements:  'Output Requirements'
+    instructional_plan: 'Instructional Plan',
+    output_requirements: 'Output Requirements'
   };
 
   const legendPills = types.map(type => {
@@ -700,11 +700,11 @@ function renderAnnotated(step) {
 
 function componentIcon(type) {
   return {
-    desired_results:      '🎯',
-    learner_context:      '👥',
+    desired_results: '🎯',
+    learner_context: '👥',
     evidence_of_learning: '🔒',
-    instructional_plan:   '📋',
-    output_requirements:  '📄'
+    instructional_plan: '📋',
+    output_requirements: '📄'
   }[type] || '•';
 }
 
@@ -864,10 +864,10 @@ function renderBuilder(step) {
 function buildPromptPreview() {
   const v = state.builderValues;
   const parts = [];
-  if (v.desired_results)     parts.push(v.desired_results.trim());
-  if (v.learner_context)     parts.push(v.learner_context.trim());
+  if (v.desired_results) parts.push(v.desired_results.trim());
+  if (v.learner_context) parts.push(v.learner_context.trim());
   if (v.evidence_of_learning) parts.push(v.evidence_of_learning.trim());
-  if (v.instructional_plan)  parts.push(v.instructional_plan.trim());
+  if (v.instructional_plan) parts.push(v.instructional_plan.trim());
   if (v.output_requirements) parts.push(v.output_requirements.trim());
   return parts.filter(Boolean).join('\n\n');
 }
@@ -975,10 +975,10 @@ function renderFaded(step) {
 
   const fields = step.fields.map((f, idx) => {
     const completion = state.fadedValues[f.key] || '';
-    const feedback   = state.fadedFieldEvals[f.key] || '';
-    const done       = !!state.fadedFieldDone[f.key];
-    const isPast     = idx < activeIdx;
-    const isFuture   = idx > activeIdx;
+    const feedback = state.fadedFieldEvals[f.key] || '';
+    const done = !!state.fadedFieldDone[f.key];
+    const isPast = idx < activeIdx;
+    const isFuture = idx > activeIdx;
 
     const pillHtml = `<span class="legend-pill ${f.type}">${componentIcon(f.type)} ${f.label}</span>`;
 
@@ -1072,12 +1072,12 @@ function updateFadedPart(key, value) {
 
 async function evaluateFadedPart(key, idx) {
   Tracker.click('faded_evaluate_' + key);
-  const mod  = MODULES.find(m => m.id === state.moduleId);
+  const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
 
-  const field      = step.fields[idx];
-  const fieldText  = (state.fadedValues[key] || '').trim();
+  const field = step.fields[idx];
+  const fieldText = (state.fadedValues[key] || '').trim();
   if (!fieldText) return;
 
   // Client-side gibberish check on user-typed text only (not prefix)
@@ -1091,9 +1091,9 @@ async function evaluateFadedPart(key, idx) {
   );
 
   if (isGibberish) {
-    state.fadedFieldEvals[key]  = 'Please write a real teaching prompt for this part.';
+    state.fadedFieldEvals[key] = 'Please write a real teaching prompt for this part.';
     state.fadedFieldScores[key] = 0;
-    state.fadedFieldDone[key]   = true;
+    state.fadedFieldDone[key] = true;
     document.getElementById('app-main').innerHTML = renderStep();
     return;
   }
@@ -1106,13 +1106,13 @@ async function evaluateFadedPart(key, idx) {
 
   try {
     const result = await API.evaluatePart(key, fieldText, field.prefix || '');
-    state.fadedFieldEvals[key]   = result.feedback;
-    state.fadedFieldScores[key]  = result.score;
-    state.fadedFieldDone[key]    = true;
+    state.fadedFieldEvals[key] = result.feedback;
+    state.fadedFieldScores[key] = result.score;
+    state.fadedFieldDone[key] = true;
   } catch (err) {
-    state.fadedFieldEvals[key]   = 'Could not evaluate. Please check your connection.';
-    state.fadedFieldScores[key]  = 0;
-    state.fadedFieldDone[key]    = true;
+    state.fadedFieldEvals[key] = 'Could not evaluate. Please check your connection.';
+    state.fadedFieldScores[key] = 0;
+    state.fadedFieldDone[key] = true;
   }
 
   document.getElementById('app-main').innerHTML = renderStep();
@@ -1120,7 +1120,7 @@ async function evaluateFadedPart(key, idx) {
 
 function nextFadedPart(idx, total) {
   Tracker.click('faded_next_part');
-  const mod  = MODULES.find(m => m.id === state.moduleId);
+  const mod = MODULES.find(m => m.id === state.moduleId);
   const step = mod?.steps_data[state.stepIndex];
   if (!step) return;
 
@@ -1128,10 +1128,10 @@ function nextFadedPart(idx, total) {
 
   // Convert current active card to "done" state in place
   const currentField = step.fields[idx];
-  const currentCard  = cards[idx];
+  const currentCard = cards[idx];
   if (currentCard && currentField) {
     const completion = (state.fadedValues[currentField.key] || '').trim();
-    const fullText   = currentField.prefix ? `${currentField.prefix} ${completion}` : completion;
+    const fullText = currentField.prefix ? `${currentField.prefix} ${completion}` : completion;
     currentCard.className = 'faded-field faded-field--done';
     currentCard.innerHTML = `
       <div class="faded-field-label">
@@ -1145,12 +1145,12 @@ function nextFadedPart(idx, total) {
   if (idx < total - 1) {
     // Unlock next card in place
     const nextField = step.fields[idx + 1];
-    const nextCard  = cards[idx + 1];
+    const nextCard = cards[idx + 1];
     if (nextCard && nextField) {
       const completion = state.fadedValues[nextField.key] || '';
-      const feedback   = state.fadedFieldEvals[nextField.key] || '';
-      const done       = !!state.fadedFieldDone[nextField.key];
-      const score      = state.fadedFieldScores[nextField.key];
+      const feedback = state.fadedFieldEvals[nextField.key] || '';
+      const done = !!state.fadedFieldDone[nextField.key];
+      const score = state.fadedFieldScores[nextField.key];
 
       const scoreHtml = feedback ? (() => {
         const s = score ?? 0;
@@ -1186,10 +1186,10 @@ function nextFadedPart(idx, total) {
   } else {
     // Last part — convert final card to done and append full prompt block
     const lastField = step.fields[idx];
-    const lastCard  = cards[idx];
+    const lastCard = cards[idx];
     if (lastCard && lastField) {
       const completion = (state.fadedValues[lastField.key] || '').trim();
-      const fullText   = lastField.prefix ? `${lastField.prefix} ${completion}` : completion;
+      const fullText = lastField.prefix ? `${lastField.prefix} ${completion}` : completion;
       lastCard.className = 'faded-field faded-field--done';
       lastCard.innerHTML = `
         <div class="faded-field-label">
@@ -1334,14 +1334,14 @@ async function submitFullPractice() {
     state.fullPracticeEval = evalResult;
     // Log score trajectory for each attempt
     API.logEvent('fullpractice_attempt', {
-      attempt:            state.fullPracticeAttempt,
-      scores:             evalResult.scores,
-      total_score:        evalResult.total_score,
-      overall_judgment:   evalResult.overall_judgment,
-      strengths:          evalResult.strengths,
+      attempt: state.fullPracticeAttempt,
+      scores: evalResult.scores,
+      total_score: evalResult.total_score,
+      overall_judgment: evalResult.overall_judgment,
+      strengths: evalResult.strengths,
       priority_improvements: evalResult.priority_improvements,
-      revision_feedback:  evalResult.revision_feedback,
-      editedFields:       Tracker.getEditedFields()
+      revision_feedback: evalResult.revision_feedback,
+      editedFields: Tracker.getEditedFields()
     });
     if (evalResult.gibberish) {
       state.fullPracticeGenerated = '';
@@ -1351,7 +1351,7 @@ async function submitFullPractice() {
   } catch (err) {
     state.fullPracticeEval = {
       error: true, total_score: 0,
-      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      scores: { desired_results: { score: 0 }, learner_context: { score: 0 }, evidence_of_learning: { score: 0 }, instructional_plan: { score: 0 }, output_requirements: { score: 0 } },
       overall_judgment: 'Beginning',
       revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection.' }
     };
@@ -1375,13 +1375,13 @@ function computeWordDiff(oldText, newText) {
   const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
   for (let i = 1; i <= m; i++)
     for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
   const ops = [];
   let i = m, j = n;
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift({ t: '=', v: b[j-1] }); i--; j--; }
-    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({ t: '+', v: b[j-1] }); j--; }
-    else { ops.unshift({ t: '-', v: a[i-1] }); i--; }
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) { ops.unshift({ t: '=', v: b[j - 1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) { ops.unshift({ t: '+', v: b[j - 1] }); j--; }
+    else { ops.unshift({ t: '-', v: a[i - 1] }); i--; }
   }
   let html = '', newline = true;
   for (const op of ops) {
@@ -1532,11 +1532,11 @@ function renderSelfReflection(step) {
 
   const v = state.reflectionEditValues;
   const promptFields = [
-    { key: 'desired_results',    label: 'Desired Results',      type: 'desired_results' },
-    { key: 'learner_context',    label: 'Learner & Context',    type: 'learner_context' },
+    { key: 'desired_results', label: 'Desired Results', type: 'desired_results' },
+    { key: 'learner_context', label: 'Learner & Context', type: 'learner_context' },
     { key: 'evidence_of_learning', label: 'Evidence of Learning', type: 'evidence_of_learning' },
-    { key: 'instructional_plan', label: 'Instructional Plan',   type: 'instructional_plan' },
-    { key: 'output_requirements', label: 'Output Requirements',  type: 'output_requirements' }
+    { key: 'instructional_plan', label: 'Instructional Plan', type: 'instructional_plan' },
+    { key: 'output_requirements', label: 'Output Requirements', type: 'output_requirements' }
   ].map(f => `
     <div class="right-field">
       <div class="right-field-label">
@@ -1699,13 +1699,13 @@ async function regenReflection() {
       ? state.reflectionPrevPromptValues
       : state.fullPracticeValues || {})
   };
-  const curValues  = state.reflectionEditValues || state.fullPracticeValues || {};
+  const curValues = state.reflectionEditValues || state.fullPracticeValues || {};
   const fieldLabels = {
-    desired_results:    'Desired Results',
-    learner_context:    'Learner & Context',
+    desired_results: 'Desired Results',
+    learner_context: 'Learner & Context',
     evidence_of_learning: 'Evidence of Learning',
     instructional_plan: 'Instructional Plan',
-    output_requirements:'Output Requirements'
+    output_requirements: 'Output Requirements'
   };
   const changedFields = Object.keys(fieldLabels)
     .filter(k => (curValues[k] || '').trim() !== (prevPromptSnapshot[k] || '').trim())
@@ -1877,7 +1877,7 @@ async function submitPosttest() {
   } catch (err) {
     const errResult = {
       error: true, total_score: 0,
-      scores: { desired_results: {score:0}, learner_context: {score:0}, evidence_of_learning: {score:0}, instructional_plan: {score:0}, output_requirements: {score:0} },
+      scores: { desired_results: { score: 0 }, learner_context: { score: 0 }, evidence_of_learning: { score: 0 }, instructional_plan: { score: 0 }, output_requirements: { score: 0 } },
       overall_judgment: 'Beginning',
       revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection.' }
     };
@@ -1902,8 +1902,8 @@ function renderComplete() {
         <p>${state.moduleId === 1
       ? 'Congratulations! You have successfully completed the first step of your design journey. You now have the framework to craft evidence-based lesson plans that move beyond generic AI output and focus on true active learning.'
       : isLastMod
-      ? 'Congratulations — you have completed ESL Co-Pilot.'
-      : `Great work! You have finished "${mod?.title}". You are ready for the next module.`
+        ? 'Congratulations — you have completed ESL Co-Pilot.'
+        : `Great work! You have finished "${mod?.title}". You are ready for the next module.`
     }</p>
         ${isLastMod
       ? `<button class="btn-back-dashboard" onclick="navigateDashboard()">← Back to Dashboard</button>`
@@ -2110,10 +2110,10 @@ function confirmName() {
   localStorage.setItem('promptcraft_participant_id', name);
   API.logEvent('session_start', {
     participantId: name,
-    userAgent:     navigator.userAgent,
-    referrer:      document.referrer,
-    screenW:       screen.width,
-    screenH:       screen.height
+    userAgent: navigator.userAgent,
+    referrer: document.referrer,
+    screenW: screen.width,
+    screenH: screen.height
   });
   render();
 }
@@ -2134,9 +2134,9 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     API.logEvent('session_start', {
       userAgent: navigator.userAgent,
-      referrer:  document.referrer,
-      screenW:   screen.width,
-      screenH:   screen.height
+      referrer: document.referrer,
+      screenW: screen.width,
+      screenH: screen.height
     });
     render();
   }

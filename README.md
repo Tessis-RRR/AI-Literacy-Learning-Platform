@@ -6,7 +6,7 @@ An interactive web-based learning platform that empowers multilingual and ESL te
 
 ## Overview
 
-**Target audience:** Multilingual / ESL teachers (middle school level)
+**Target audience:** ESL teachers (middle school level)
 **Platform Scope:** 6 distinct modules covering prompt design, lesson building, and student evaluation.
 **Current Availability:** Module 1 ("Design in Action") is fully playable (~30 minutes).
 
