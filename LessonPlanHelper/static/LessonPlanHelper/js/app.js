@@ -343,9 +343,7 @@ function renderShell() {
     '<div class="sh-scroll">' +
     mainContent +
     '</div></main>' +
-    '<aside class="sh-rail">' +
-    renderShellRail() +
-    '</aside></div>'
+    '</div>'
   );
 }
 
