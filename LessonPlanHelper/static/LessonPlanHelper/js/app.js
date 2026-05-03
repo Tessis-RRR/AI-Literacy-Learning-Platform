@@ -19,6 +19,11 @@ const state = {
   pretestPrompt: '',
   pretestEval: null,       // { scores, total, feedback, overall }
   introSkipped: false,
+  // Shell dashboard state
+  dashNav: 'dashboard',
+  dashModuleId: null,
+  dashSearch: '',
+  dashFilter: 'all',
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
@@ -111,6 +116,7 @@ function totalProgress() {
 /* ── Navigation ─────────────────────────────────────────── */
 function navigateDashboard() {
   state.view = 'dashboard';
+  state.dashNav = 'dashboard';
   state.moduleId = null;
   state.stepIndex = 0;
   render();
@@ -175,126 +181,465 @@ function render() {
 /* ── Header ─────────────────────────────────────────────── */
 function renderHeader() {
   const header = document.getElementById('app-header');
+  if (state.view === 'dashboard') {
+    header.classList.add('hidden');
+    document.body.classList.add('dashboard-active');
+    return;
+  }
+  document.body.classList.remove('dashboard-active');
   const pct = totalProgress();
   const username = getParticipantId();
+  const mod = MODULES.find(m => m.id === state.moduleId);
+  const modPct = mod ? getModuleProgress(mod.id) : 0;
   const userBadge = username
     ? `<div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
          <span style="font-size:0.8rem;color:var(--text-secondary);font-weight:500">@${username}</span>
          <button onclick="logout()" style="font-size:0.75rem;padding:0.25rem 0.6rem;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--text-secondary)">Switch</button>
        </div>`
     : '';
-  if (state.view === 'dashboard') {
-    header.classList.remove('hidden');
-    header.innerHTML = `
-      <div class="header-inner">
-        <a class="header-logo" href="#" onclick="navigateDashboard(); return false;">
-          <div class="header-logo-icon">✦</div>
-          <span class="header-logo-text">ESL Co-Pilot</span>
-        </a>
-        <div class="header-progress-wrap">
-          <div class="header-progress-label">Overall Progress — ${pct}%</div>
-          <div class="header-progress-bar-bg">
-            <div class="header-progress-bar-fill" style="width:${pct}%"></div>
-          </div>
+  header.classList.remove('hidden');
+  header.innerHTML = `
+    <div class="header-inner">
+      <a class="header-logo" href="#" onclick="navigateDashboard(); return false;">
+        <div class="header-logo-icon">✦</div>
+        <span class="header-logo-text">ESL Co-Pilot</span>
+      </a>
+      <div class="header-progress-wrap">
+        <div class="header-progress-label">${mod ? mod.title : ''} — ${modPct}%</div>
+        <div class="header-progress-bar-bg">
+          <div class="header-progress-bar-fill" style="width:${modPct}%"></div>
         </div>
-        ${userBadge}
-      </div>`;
+      </div>
+      <button class="header-back-btn" onclick="navigateDashboard()">← Dashboard</button>
+      ${userBadge}
+    </div>`;
+}
+
+/* ── Dashboard helpers ──────────────────────────────────── */
+const STEP_META = [
+  { icon: '📝', bg: '#DBEAFE', color: '#1D4ED8', label: 'Pre-Test' },
+  { icon: '💡', bg: '#EDE9FE', color: '#5B21B6', label: 'Framework' },
+  { icon: '🔍', bg: '#D1FAE5', color: '#065F46', label: 'Worked Example' },
+  { icon: '✏️', bg: '#FEF3C7', color: '#92400E', label: 'Faded Example' },
+  { icon: '🚀', bg: '#FCE7F3', color: '#9D174D', label: 'Full Practice' },
+  { icon: '🪞', bg: '#FEE2E2', color: '#991B1B', label: 'Self-Reflection' },
+  { icon: '🏆', bg: '#FEF9C3', color: '#713F12', label: 'Post-Test' },
+];
+
+function iconSVG(name, size = 18, stroke = 2) {
+  const paths = {
+    search:    '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    bell:      '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    mail:      '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    home:      '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    book:      '<path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z"/><path d="M4 5v15"/><path d="M9 7h6"/>',
+    builder:   '<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 14h6"/><path d="M9 18h6"/>',
+    sheet:     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
+    grid:      '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    chart:     '<path d="M3 21h18"/><rect x="6" y="12" width="3" height="7" rx="0.5"/><rect x="11" y="7" width="3" height="12" rx="0.5"/><rect x="16" y="14" width="3" height="5" rx="0.5"/>',
+    clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 11h6"/><path d="M9 15h4"/>',
+    settings:  '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    arrowR:    '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>',
+    arrowL:    '<path d="M19 12H5"/><path d="m11 19-7-7 7-7"/>',
+    play:      '<path d="M6 4v16l14-8z"/>',
+    check:     '<path d="m5 12 5 5 9-11"/>',
+    plus:      '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    sparkle:   '<path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="m6 6 2.5 2.5"/><path d="m15.5 15.5 2.5 2.5"/><path d="m6 18 2.5-2.5"/><path d="m15.5 8.5 2.5-2.5"/>',
+    clock:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    list:      '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+    file:      '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+    bookmark:  '<path d="m6 3 12 0v18l-6-4-6 4z"/>',
+    moreH:     '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+    users:     '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8"/><path d="M22 21a7 7 0 0 0-5-6.7"/>',
+    target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>',
+    flame:     '<path d="M12 2s4 4 4 8a4 4 0 1 1-8 0c0-2 1-3 1-3s-1 4 1 5c1-3 2-4 2-7 1 1 4 4 4 8a6 6 0 1 1-12 0c0-5 4-7 4-11"/>',
+    folder:    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    send:      '<path d="m4 4 16 8-16 8 4-8z"/>',
+    lock:      '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    bolt:      '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
+  };
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || '') + '</svg>';
+}
+
+function illustrationSVG(name, accent, tint, size) {
+  size = size || 132;
+  const id = 'g' + name + accent.replace('#', '');
+  if (name === 'spark') return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><defs><linearGradient id="' + id + '" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="' + accent + '" stop-opacity="0.95"/><stop offset="100%" stop-color="' + accent + '" stop-opacity="0.55"/></linearGradient></defs><rect width="132" height="132" fill="' + tint + '"/><path d="M66 28 L74 56 L102 64 L74 72 L66 100 L58 72 L30 64 L58 56 Z" fill="url(#' + id + ')" stroke="' + accent + '" stroke-width="1.5" stroke-linejoin="round"/><circle cx="106" cy="32" r="4" fill="' + accent + '" opacity="0.6"/><circle cx="26" cy="100" r="3" fill="' + accent + '" opacity="0.5"/><circle cx="20" cy="38" r="2" fill="' + accent + '" opacity="0.4"/></svg>';
+  if (name === 'crane') return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/><path d="M28 104 L28 32 L96 32" fill="none" stroke="' + accent + '" stroke-width="3" stroke-linecap="round"/><path d="M28 32 L62 22 L62 32 Z" fill="' + accent + '" opacity="0.7"/><path d="M70 32 L70 50" stroke="' + accent + '" stroke-width="3" stroke-linecap="round"/><rect x="60" y="50" width="20" height="14" rx="2" fill="' + accent + '"/><rect x="22" y="98" width="14" height="10" rx="1.5" fill="' + accent + '" opacity="0.8"/><path d="M44 104 L88 104 L96 90 L52 90 Z" fill="white" stroke="' + accent + '" stroke-width="2"/><rect x="58" y="94" width="8" height="6" fill="' + accent + '" opacity="0.4"/><rect x="72" y="94" width="8" height="6" fill="' + accent + '" opacity="0.4"/></svg>';
+  if (name === 'pen') return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/><rect x="28" y="32" width="60" height="76" rx="4" fill="white" stroke="' + accent + '" stroke-width="2"/><path d="M40 50 H76" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.6"/><path d="M40 62 H76" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.6"/><path d="M40 74 H66" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.6"/><path d="M40 86 H72" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.4"/><g transform="translate(72 22) rotate(35)"><rect x="0" y="0" width="10" height="50" rx="2" fill="' + accent + '"/><path d="M0 50 L5 60 L10 50 Z" fill="#1A1830"/><rect x="0" y="0" width="10" height="8" fill="' + accent + '" opacity="0.7"/></g></svg>';
+  if (name === 'gear') {
+    const teeth = [0,45,90,135,180,225,270,315].map(function(a) {
+      return '<rect x="-6" y="-42" width="12" height="14" rx="2" fill="' + accent + '" transform="rotate(' + a + ')"/>';
+    }).join('');
+    return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/><g transform="translate(66 66)">' + teeth + '<circle r="32" fill="white" stroke="' + accent + '" stroke-width="2.5"/><circle r="14" fill="' + accent + '" opacity="0.25"/><circle r="6" fill="' + accent + '"/></g><circle cx="32" cy="36" r="8" fill="' + accent + '" opacity="0.4"/><circle cx="100" cy="100" r="5" fill="' + accent + '" opacity="0.55"/></svg>';
+  }
+  if (name === 'chart') return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/><path d="M22 104 H110" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.4"/><rect x="32" y="74" width="14" height="30" rx="3" fill="' + accent + '" opacity="0.45"/><rect x="54" y="50" width="14" height="54" rx="3" fill="' + accent + '" opacity="0.7"/><rect x="76" y="32" width="14" height="72" rx="3" fill="' + accent + '"/><path d="M22 28 Q40 38 56 30 T100 22" fill="none" stroke="#1A1830" stroke-width="2" stroke-linecap="round" opacity="0.5"/><circle cx="56" cy="30" r="3" fill="#1A1830"/><circle cx="100" cy="22" r="3" fill="#1A1830"/></svg>';
+  if (name === 'clipboard') return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/><rect x="32" y="28" width="56" height="80" rx="6" fill="white" stroke="' + accent + '" stroke-width="2"/><rect x="48" y="20" width="24" height="14" rx="3" fill="' + accent + '"/><circle cx="60" cy="27" r="2.5" fill="white"/><path d="M44 50 H68" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.55"/><path d="M44 62 H76" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.55"/><path d="M44 74 H72" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" opacity="0.4"/><circle cx="92" cy="86" r="14" fill="' + accent + '"/><path d="m86 86 4 4 8-8" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<svg viewBox="0 0 132 132" width="' + size + '" height="' + size + '"><rect width="132" height="132" fill="' + tint + '"/></svg>';
+}
+
+function heroOrnamentSVG() {
+  return '<svg class="sh-hero-ornament" viewBox="0 0 800 300" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="herorad" cx="100%" cy="0%" r="70%"><stop offset="0%" stop-color="rgba(255,255,255,0.35)"/><stop offset="60%" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="800" height="300" fill="url(#herorad)"/><g fill="white" opacity="0.55"><path d="M620 60 l8 28 28 8 -28 8 -8 28 -8 -28 -28 -8 28 -8 z"/><path d="M720 180 l5 18 18 5 -18 5 -5 18 -5 -18 -18 -5 18 -5 z"/><path d="M530 220 l4 14 14 4 -14 4 -4 14 -4 -14 -14 -4 14 -4 z"/><path d="M460 80 l3 11 11 3 -11 3 -3 11 -3 -11 -11 -3 11 -3 z" opacity="0.7"/></g></svg>';
+}
+
+/* ── Shell navigation ────────────────────────────────────── */
+function shellNav(nav, moduleId) {
+  state.dashNav = nav;
+  state.dashModuleId = moduleId || null;
+  if (nav !== 'modules' && nav !== 'detail') state.dashSearch = '';
+  render();
+}
+
+function shellOpenModule(id) {
+  const mod = MODULES.find(m => m.id === id);
+  if (mod && mod.steps_data && mod.steps_data.length > 0) {
+    // Module has real content — go directly to its steps
+    const visited = state.progress[mod.id]?.stepsVisited;
+    const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
+    navigateStep(mod.id, next);
   } else {
-    const mod = MODULES.find(m => m.id === state.moduleId);
-    const modPct = mod ? getModuleProgress(mod.id) : 0;
-    header.classList.remove('hidden');
-    header.innerHTML = `
-      <div class="header-inner">
-        <a class="header-logo" href="#" onclick="navigateDashboard(); return false;">
-          <div class="header-logo-icon">✦</div>
-          <span class="header-logo-text">ESL Co-Pilot</span>
-        </a>
-        <div class="header-progress-wrap">
-          <div class="header-progress-label">${mod ? mod.title : ''} — ${modPct}%</div>
-          <div class="header-progress-bar-bg">
-            <div class="header-progress-bar-fill" style="width:${modPct}%"></div>
-          </div>
-        </div>
-        <button class="header-back-btn" onclick="navigateDashboard()">← Modules</button>
-        ${userBadge}
-      </div>`;
+    // No steps yet — show the detail/info page
+    shellNav('detail', id);
   }
 }
 
-/* ── Dashboard ──────────────────────────────────────────── */
-function renderDashboard() {
-  const allDone = MODULES.every(m => state.progress[m.id]?.completed);
-  return `
-    <div class="landing fade-in">
-      <div class="landing-hero">
-        <div class="landing-hero-badge">✦ ACTIVE LEARNING FOR ESL EDUCATORS</div>
-        <h1>Welcome to <span>ESL Co-Pilot</span></h1>
-        <p>Build your teaching toolkit through action. This workspace moves beyond theory, coaching you through a learning-by-doing process to co-create effective, evidence-based materials with your AI design partner.</p>
-        <div class="landing-stats">
-          <div class="landing-stat">
-            <span class="landing-stat-value">30</span>
-            <span class="landing-stat-label">Minutes</span>
-          </div>
-          <div class="landing-stat">
-            <span class="landing-stat-value">5</span>
-            <span class="landing-stat-label">Framework Parts</span>
-          </div>
-          <div class="landing-stat">
-            <span class="landing-stat-value">Live</span>
-            <span class="landing-stat-label">AI Practice</span>
-          </div>
-          <div class="landing-stat">
-            <span class="landing-stat-value">5</span>
-            <span class="landing-stat-label">Rubric Dimensions</span>
-          </div>
-        </div>
-        ${allDone
-      ? `<div class="callout success" style="text-align:left;max-width:460px;margin:0 auto;"><div class="callout-icon">🎉</div><div class="callout-body"><strong>Module complete!</strong> You can revisit any section anytime.</div></div>`
-      : `<button class="btn-start" onclick="startCourse()">${totalProgress() > 0 ? 'Continue Learning' : 'Start Learning →'}</button>`
-    }
-      </div>
-
-      <div class="modules-section">
-        <h2>Module Overview</h2>
-        <div class="modules-grid">
-          ${MODULES.map((mod, idx) => renderModuleCard(mod, idx)).join('')}
-        </div>
-      </div>
-    </div>`;
+function shellStartModule(id) {
+  const mod = MODULES.find(m => m.id === id);
+  if (!mod || !mod.steps_data || mod.steps_data.length === 0) return;
+  const visited = state.progress[mod.id]?.stepsVisited;
+  const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
+  navigateStep(mod.id, next);
 }
 
-function renderModuleCard(mod, idx) {
-  const pct = getModuleProgress(mod.id);
-  const completed = state.progress[mod.id]?.completed;
-  const visited = (state.progress[mod.id]?.stepsVisited?.size || 0) > 0;
+function shellContinueLearning() {
+  for (const mod of MODULES) {
+    if (mod.steps_data && mod.steps_data.length > 0 && !state.progress[mod.id]?.completed) {
+      const visited = state.progress[mod.id]?.stepsVisited;
+      const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
+      navigateStep(mod.id, next);
+      return;
+    }
+  }
+  navigateStep(1, 0);
+}
 
-  let statusLabel, statusClass;
-  if (completed) { statusLabel = '✓ Complete'; statusClass = 'status-completed'; }
-  else if (visited) { statusLabel = '→ In Progress'; statusClass = 'status-in-progress'; }
-  else { statusLabel = 'Not Started'; statusClass = 'status-not-started'; }
+/* ── Shell rendering ─────────────────────────────────────── */
+function renderDashboard() {
+  return renderShell();
+}
 
-  return `
-    <div class="module-card ${completed ? 'completed' : ''} fade-in fade-in-delay-${idx}" ${mod.steps > 0 ? `onclick="navigateStep(${mod.id}, 0)"` : 'style="opacity: 0.6; cursor: not-allowed;"'}>
-      <div class="module-card-header">
-        <div class="module-card-header-icon">${mod.icon}</div>
-        <div class="module-card-header-info">
-          <div class="module-card-num">Module ${mod.id}</div>
-          <div class="module-card-title">${mod.title}</div>
-        </div>
-      </div>
-      <div class="module-card-desc">${mod.description}</div>
-      ${pct > 0 ? `
-        <div class="module-progress-bar">
-          <div class="module-progress-fill" style="width:${pct}%"></div>
-        </div>` : ''}
-      <div class="module-card-footer">
-        <div class="module-card-meta">
-          <span>⏱ ${mod.duration}</span>
-          <span>📄 ${mod.steps} steps</span>
-        </div>
-        <span class="module-card-status ${statusClass}">${statusLabel}</span>
-      </div>
-    </div>`;
+function renderShell() {
+  const nav = state.dashNav || 'dashboard';
+  let mainContent;
+  if (nav === 'dashboard')    mainContent = renderShellDashboardContent();
+  else if (nav === 'modules') mainContent = renderShellModulesContent();
+  else if (nav === 'detail')  mainContent = renderShellDetailContent();
+  else                        mainContent = renderShellSimpleContent(nav);
+  return (
+    '<div class="app-shell">' +
+    renderShellSidebar(nav) +
+    '<main class="sh-main">' +
+    renderShellTopBar() +
+    '<div class="sh-scroll">' +
+    mainContent +
+    '</div></main>' +
+    '<aside class="sh-rail">' +
+    renderShellRail() +
+    '</aside></div>'
+  );
+}
+
+function renderShellSidebar(activeNav) {
+  const items = [
+    { id: 'dashboard', label: 'Dashboard',      icon: 'home' },
+    { id: 'modules',   label: 'Modules',         icon: 'book',    badge: '6' },
+    { id: 'builder',   label: 'Lesson Builder',  icon: 'builder' },
+    { id: 'library',   label: 'My Library',      icon: 'folder' },
+    { id: 'students',  label: 'Students',        icon: 'users' },
+  ];
+  const settings = [{ id: 'settings', label: 'Settings', icon: 'settings' }];
+  const sidebarActive = activeNav === 'detail' ? 'modules' : activeNav;
+  const navItems = items.map(function(it) {
+    const cls = sidebarActive === it.id ? ' active' : '';
+    const badge = it.badge ? '<span class="sb-badge">' + it.badge + '</span>' : '';
+    return '<button class="sb-nav-item' + cls + '" onclick="shellNav(\'' + it.id + '\')">' + iconSVG(it.icon, 18) + '<span>' + escHtml(it.label) + '</span>' + badge + '</button>';
+  }).join('');
+  const settingsItems = settings.map(function(it) {
+    const cls = sidebarActive === it.id ? ' active' : '';
+    return '<button class="sb-nav-item' + cls + '" onclick="shellNav(\'' + it.id + '\')">' + iconSVG(it.icon, 18) + '<span>' + escHtml(it.label) + '</span></button>';
+  }).join('');
+  return (
+    '<aside class="sh-sidebar">' +
+    '<div class="sb-brand"><div class="sb-brand-mark">' + iconSVG('sparkle', 18, 2.5) + '</div><div class="sb-brand-name">ESL <span>Co-Pilot</span></div></div>' +
+    '<div><div class="sb-section-label">Workspace</div><nav class="sb-nav">' + navItems + '</nav></div>' +
+    '<div class="sb-helper"><h4>Need a hand?</h4><p>Ask the AI co-designer about anything in your current lesson draft.</p><button>Open AI ' + iconSVG('arrowR', 13) + '</button></div>' +
+    '<div class="sb-spacer"></div>' +
+    '<div><div class="sb-section-label">Account</div><nav class="sb-nav">' + settingsItems + '</nav>' +
+    '<div class="sb-user"><div class="sb-avatar">SY</div><div><div class="sb-uname">@shiyu</div><div class="sb-umeta">Middle-school ESL</div></div></div></div>' +
+    '</aside>'
+  );
+}
+
+function renderShellTopBar() {
+  const pct = totalProgress();
+  const searchVal = (state.dashSearch || '').replace(/"/g, '&quot;');
+  return (
+    '<div class="sh-topbar">' +
+    '<div class="sh-search">' + iconSVG('search', 18) +
+    '<input type="text" placeholder="Search modules, lessons, worksheets…" value="' + searchVal + '" oninput="state.dashSearch=this.value;render()"/>' +
+    '<kbd>⌘K</kbd></div>' +
+    '<div class="sh-tb-progress"><span class="sh-tb-plabel">Progress</span>' +
+    '<div class="sh-tb-pbar"><div style="width:' + pct + '%"></div></div>' +
+    '<span class="sh-tb-ppct">' + pct + '%</span></div>' +
+    '<div style="flex:1"></div>' +
+    '<button class="sh-icon-btn" title="Messages">' + iconSVG('mail', 18) + '</button>' +
+    '<button class="sh-icon-btn" title="Notifications">' + iconSVG('bell', 18) + '<span class="sh-dot"></span></button>' +
+    '</div>'
+  );
+}
+
+function renderShellRail() {
+  const resources = SAVED_RESOURCES.slice(0, 5).map(function(r) {
+    const iconName = r.kind === 'rubric' ? 'grid' : 'sheet';
+    return (
+      '<div class="sh-resource">' +
+      '<div class="sh-ric" style="background:' + r.tint + ';color:' + r.accent + '">' + iconSVG(iconName, 18) + '</div>' +
+      '<div style="flex:1;min-width:0"><div class="sh-rtitle">' + escHtml(r.title) + '</div>' +
+      '<div class="sh-rmeta"><span>' + escHtml(r.meta) + '</span><span>·</span><span>' + escHtml(r.updated) + '</span></div></div>' +
+      '<div class="sh-raction">' + iconSVG('arrowR', 14) + '</div></div>'
+    );
+  }).join('');
+
+  const days = WEEK_PROGRESS.map(function(d) {
+    const cls = d.state === 'done' ? ' done' : d.state === 'today' ? ' today' : '';
+    const check = d.state === 'done' ? '✓' : '';
+    return '<div class="sh-streak-day' + cls + '"><span class="sh-dlbl">' + d.lbl + '</span><div class="sh-ddot">' + check + '</div></div>';
+  }).join('');
+
+  return (
+    '<div class="sh-rail-card">' +
+    '<div class="sh-rail-head"><h3>Saved resources</h3></div>' +
+    resources +
+    '<button class="sh-see-all" onclick="shellNav(\'library\')">See all in library ' + iconSVG('arrowR', 13) + '</button>' +
+    '</div>' +
+
+    '<div class="sh-rail-card">' +
+    '<div class="sh-rail-head"><h3>This week</h3></div>' +
+    '<div class="sh-streak">' + days + '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-500)">' +
+    '<span style="color:var(--peach-500)">' + iconSVG('flame', 16) + '</span>' +
+    '<span><strong style="color:var(--ink-900)">6-day streak.</strong> Don\'t break it today.</span>' +
+    '</div></div>' +
+
+    '<div class="sh-ai-card">' +
+    '<span class="sh-ai-badge">' + iconSVG('sparkle', 11) + ' AI Co-Designer</span>' +
+    '<h3>Need a 5-minute warm-up for tomorrow?</h3>' +
+    '<p>Tell me the grade, level, and what you covered today. I\'ll draft three options.</p>' +
+    '<div class="sh-ai-prompt"><input placeholder="e.g. 7th gr., A2, present perfect…"/>' +
+    '<button class="sh-ai-send">' + iconSVG('send', 13) + '</button></div>' +
+    '</div>'
+  );
+}
+
+function renderShellDashboardContent() {
+  const search = (state.dashSearch || '').toLowerCase();
+  const current = MODULES.find(function(m) { return m.status === 'progress'; }) || MODULES[0];
+  const allMods = search
+    ? MODULES.filter(function(m) { return m.title.toLowerCase().includes(search) || m.description.toLowerCase().includes(search); })
+    : MODULES;
+  const top = allMods.slice(0, 4);
+  const pct = Math.round((current.progress || 0) * 100);
+
+  const statsData = [
+    { icon: 'bolt',  num: '6',    label: 'Day streak',       tint: '#FCE8DA', accent: '#B95D2A' },
+    { icon: 'check', num: '1/6',  label: 'Modules complete', tint: '#E5F0E0', accent: '#3E6B30' },
+    { icon: 'file',  num: '12',   label: 'Saved resources',  tint: '#DCEBF7', accent: '#3F6FA1' },
+    { icon: 'clock', num: '42m',  label: 'This week',        tint: '#E8E4FB', accent: '#4338CA' },
+  ];
+  const statsHtml = statsData.map(function(s) {
+    return (
+      '<div class="sh-stat-pill">' +
+      '<div class="sh-sic" style="background:' + s.tint + ';color:' + s.accent + '">' + iconSVG(s.icon, 20, 2) + '</div>' +
+      '<div><div class="sh-snum">' + s.num + '</div><div class="sh-slbl">' + s.label + '</div></div>' +
+      '</div>'
+    );
+  }).join('');
+
+  const cardsHtml = top.map(function(m, i) { return renderModuleCard(m, i); }).join('');
+  const emptyHtml = top.length === 0
+    ? '<div class="sh-placeholder"><h2>No matches for &ldquo;' + escHtml(state.dashSearch || '') + '&rdquo;</h2><p>Try searching by topic or clear the search to see everything.</p></div>'
+    : '';
+
+  return (
+    '<section class="sh-hero sh-fade-up">' +
+    heroOrnamentSVG() +
+    '<div class="sh-hero-body">' +
+    '<span class="sh-hero-eyebrow">' + iconSVG('sparkle', 11) + ' Welcome back, Shiyu</span>' +
+    '<h1>Pick up where you <em>left off</em> — your next lesson is one step away.</h1>' +
+    '<p>Your AI co-designer remembers every framework you’ve practiced. Continue refining today’s plan or start something new.</p>' +
+    '<div class="sh-hero-cta-row">' +
+    '<button class="sh-hero-cta" onclick="shellContinueLearning()">Continue learning<span class="sh-hero-cta-arrow">' + iconSVG('arrowR', 14, 2.5) + '</span></button>' +
+    '<button class="sh-hero-cta-ghost" onclick="shellNav(\'modules\')">' + iconSVG('plus', 15) + ' New lesson</button>' +
+    '</div></div>' +
+    '<div class="sh-hero-current">' +
+    '<span class="shc-label">In Progress</span>' +
+    '<div class="shc-title">' + escHtml(current.title) + '</div>' +
+    '<div class="shc-step">Step 1 of ' + current.steps + ' · Get started</div>' +
+    '<div class="shc-bar"><div style="width:' + pct + '%"></div></div>' +
+    '<div class="shc-meta"><span>' + pct + '% complete</span><span>~30 min left</span></div>' +
+    '</div></section>' +
+
+    '<div class="sh-stats sh-fade-up">' + statsHtml + '</div>' +
+
+    '<div>' +
+    '<div class="sh-section-head" style="margin-bottom:14px">' +
+    '<div><h2>Module <span class="sh-accent">overview</span></h2><div class="sh-sub">Six modules pair learning with usable tools. Start anywhere.</div></div>' +
+    '<button class="sh-see-all" onclick="shellNav(\'modules\')">View all ' + iconSVG('arrowR', 13) + '</button>' +
+    '</div>' +
+    '<div class="sh-mod-grid">' + cardsHtml + '</div>' +
+    emptyHtml + '</div>'
+  );
+}
+
+function renderShellModulesContent() {
+  const filter = state.dashFilter || 'all';
+  const search = (state.dashSearch || '').toLowerCase();
+  let list = MODULES;
+  if (filter === 'learning') list = list.filter(function(m) { return m.kind === 'Learning Module'; });
+  if (filter === 'tools')    list = list.filter(function(m) { return m.kind === 'Co-Design Tool'; });
+  if (filter === 'progress') list = list.filter(function(m) { return m.status !== 'notstarted'; });
+  if (search) list = list.filter(function(m) { return m.title.toLowerCase().includes(search) || m.description.toLowerCase().includes(search); });
+
+  const filterDefs = [
+    { id: 'all', label: 'All' },
+    { id: 'learning', label: 'Learning' },
+    { id: 'tools', label: 'Tools' },
+    { id: 'progress', label: 'In progress' },
+  ];
+  const filterHtml = filterDefs.map(function(f) {
+    const cls = filter === f.id ? ' class="active"' : '';
+    return '<button' + cls + ' onclick="state.dashFilter=\'' + f.id + '\';render()">' + f.label + '</button>';
+  }).join('');
+
+  const cardsHtml = list.map(function(m, i) { return renderModuleCard(m, i); }).join('');
+  const emptyHtml = list.length === 0 ? '<div class="sh-placeholder"><h2>Nothing matches</h2><p>Try a different filter or clear the search.</p></div>' : '';
+
+  return (
+    '<div class="sh-section-head">' +
+    '<div><h2>All <span class="sh-accent">modules</span></h2><div class="sh-sub">' + list.length + ' of ' + MODULES.length + ' shown</div></div>' +
+    '<div class="sh-tab-row">' + filterHtml + '</div>' +
+    '</div>' +
+    '<div class="sh-mod-grid">' + cardsHtml + '</div>' +
+    emptyHtml
+  );
+}
+
+function renderShellDetailContent() {
+  const m = MODULES.find(function(mod) { return mod.id === state.dashModuleId; });
+  if (!m) return renderShellModulesContent();
+  const pct = Math.round((m.progress || 0) * 100);
+
+  const visitedSize = state.progress[m.id] ? state.progress[m.id].stepsVisited.size : 0;
+  const stepsHtml = (m.detailSteps || []).map(function(s, i) {
+    const isDone = state.progress[m.id] ? state.progress[m.id].stepsVisited.has(i) : false;
+    const isCurrent = !isDone && i === visitedSize;
+    const cls = isDone ? ' done' : isCurrent ? ' current' : '';
+    const numInner = isDone ? iconSVG('check', 14, 2.8) : (i + 1);
+    return (
+      '<div class="sh-step-item' + cls + '">' +
+      '<div class="sh-step-num">' + numInner + '</div>' +
+      '<div class="sh-step-text"><div class="sh-st">' + escHtml(s.t) + '</div><div class="sh-sd">' + escHtml(s.d) + '</div></div>' +
+      '<div class="sh-step-time">' + escHtml(s.time) + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  const lockedMsg = !stepsHtml
+    ? '<div style="padding:24px 0;color:var(--ink-500);font-size:14px">' + iconSVG('lock', 14) + ' This module is being authored.</div>'
+    : '';
+
+  const outcomesHtml = (m.outcomes || []).map(function(o) { return '<li>' + escHtml(o) + '</li>'; }).join('');
+  const outcomesBlock = outcomesHtml
+    ? '<div class="sh-outcomes" style="margin-bottom:16px"><h3>You\'ll be able to</h3><ul>' + outcomesHtml + '</ul></div>'
+    : '';
+
+  const btnLabel = m.status === 'complete' ? 'Review module' : m.status === 'progress' ? 'Continue' : 'Start module';
+
+  return (
+    '<div class="sh-detail">' +
+    '<button class="sh-detail-back" onclick="shellNav(\'modules\')">' + iconSVG('arrowL', 14) + ' Back</button>' +
+
+    '<div class="sh-detail-hero">' +
+    '<div class="sh-dicon" style="background:' + m.tint + '">' + illustrationSVG(m.illustration, m.accent, m.tint, 108) + '</div>' +
+    '<div>' +
+    '<div class="sh-mod-meta" style="margin-bottom:6px"><span>Module ' + m.number + '</span><span class="sh-mdot"></span><span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
+    '<h1>' + escHtml(m.title) + '</h1>' +
+    '<p class="sh-dlede">' + escHtml(m.description) + '</p>' +
+    '<div class="sh-dmeta">' +
+    '<span>' + iconSVG('clock', 14) + ' ' + escHtml(m.duration) + '</span>' +
+    '<span>' + iconSVG('list', 14) + ' ' + m.steps + ' steps</span>' +
+    '<span>' + iconSVG('target', 14) + ' ' + pct + '% complete</span>' +
+    '</div></div>' +
+    '<div class="sh-detail-cta">' +
+    '<button class="sh-btn-primary" onclick="shellStartModule(' + m.id + ')">' + btnLabel + ' ' + iconSVG('arrowR', 14, 2.5) + '</button>' +
+    '<button class="sh-btn-secondary">' + iconSVG('bookmark', 14) + ' Save for later</button>' +
+    '</div></div>' +
+
+    '<div class="sh-detail-grid">' +
+    '<div class="sh-steps-card"><h3>Steps in this module</h3>' + (stepsHtml || lockedMsg) + '</div>' +
+    '<div>' +
+    outcomesBlock +
+    '<div class="sh-rail-card">' +
+    '<div class="sh-rail-head"><h3>Pairs well with</h3></div>' +
+    '<div class="sh-resource"><div class="sh-ric" style="background:#FCE8DA;color:#B95D2A">' + iconSVG('builder', 18) + '</div><div style="flex:1;min-width:0"><div class="sh-rtitle">Lesson Builder</div><div class="sh-rmeta"><span>Apply the framework live</span></div></div><div class="sh-raction">' + iconSVG('arrowR', 14) + '</div></div>' +
+    '<div class="sh-resource"><div class="sh-ric" style="background:#E5F0E0;color:#3E6B30">' + iconSVG('grid', 18) + '</div><div style="flex:1;min-width:0"><div class="sh-rtitle">Resource Generator</div><div class="sh-rmeta"><span>Build worksheets to match</span></div></div><div class="sh-raction">' + iconSVG('arrowR', 14) + '</div></div>' +
+    '</div></div></div></div>'
+  );
+}
+
+function renderShellSimpleContent(nav) {
+  const configs = {
+    builder:  { icon: 'builder',  title: 'Lesson Builder',  body: 'Open the Lesson Builder module to launch the AI co-designer for tomorrow’s lesson.' },
+    library:  { icon: 'folder',   title: 'My Library',      body: 'Every worksheet and rubric you save lives here. Use the Resource Generator inside any module to add more.' },
+    students: { icon: 'users',    title: 'Students',        body: 'Add a roster to start using the Student Evaluator. We’ll keep it private to your account.' },
+    settings: { icon: 'settings', title: 'Settings',        body: 'Profile, notifications, and AI preferences will live here.' },
+  };
+  const c = configs[nav] || { icon: 'home', title: 'Dashboard', body: '' };
+  return (
+    '<div class="sh-placeholder" style="margin-top:40px">' +
+    '<div style="width:56px;height:56px;border-radius:18px;background:var(--indigo-50);color:var(--indigo-600);display:grid;place-items:center;margin:0 auto 16px">' + iconSVG(c.icon, 28) + '</div>' +
+    '<h2>' + escHtml(c.title) + '</h2>' +
+    '<p>' + escHtml(c.body) + '</p>' +
+    '</div>'
+  );
+}
+
+function renderModuleCard(m, index) {
+  const lockedCls = m.status === 'notstarted' ? ' sh-locked' : '';
+  const delay = (index || 0) * 60;
+  let statusBadge;
+  if (m.status === 'complete')     statusBadge = '<div class="sh-mod-status complete">'    + iconSVG('check', 11, 2.5) + ' Complete</div>';
+  else if (m.status === 'progress') statusBadge = '<div class="sh-mod-status progress">'   + iconSVG('play',  10)      + ' In progress</div>';
+  else                              statusBadge = '<div class="sh-mod-status notstarted">' + iconSVG('lock',  11)      + ' Coming soon</div>';
+
+  let pillHtml;
+  if (m.status === 'complete')     pillHtml = '<span class="sh-mod-pill complete">'    + iconSVG('check', 11, 2.5) + ' Complete</span>';
+  else if (m.status === 'progress') pillHtml = '<span class="sh-mod-pill progress">'   + iconSVG('play',  10)      + ' In progress</span>';
+  else                              pillHtml = '<span class="sh-mod-pill notstarted">Not started</span>';
+
+  const onclickAttr = m.status !== 'notstarted' ? ' onclick="shellOpenModule(' + m.id + ')"' : '';
+
+  return (
+    '<div class="sh-mod-card' + lockedCls + ' sh-fade-up" style="animation-delay:' + delay + 'ms"' + onclickAttr + '>' +
+    '<div class="sh-mod-thumb" style="background:' + m.tint + '">' +
+    '<div class="sh-mod-thumb-art">' + illustrationSVG(m.illustration, m.accent, m.tint, 132) + '</div>' +
+    statusBadge + '</div>' +
+    '<div class="sh-mod-meta"><span>Module ' + m.number + '</span><span class="sh-mdot"></span><span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
+    '<h3>' + escHtml(m.title) + '</h3>' +
+    '<p class="sh-mod-desc">' + escHtml(m.description) + '</p>' +
+    '<div class="sh-mod-foot"><div class="sh-mfl"><span>' + iconSVG('clock', 13) + ' ' + escHtml(m.duration) + '</span><span>' + iconSVG('list', 13) + ' ' + m.steps + ' steps</span></div>' +
+    pillHtml + '</div></div>'
+  );
 }
 
 function startCourse() {

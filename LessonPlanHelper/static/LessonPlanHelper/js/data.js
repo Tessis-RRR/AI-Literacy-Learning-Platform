@@ -5,11 +5,32 @@
 const MODULES = [
   {
     id: 1,
+    number: 1,
+    kind: 'Learning Module',
     title: 'Design in Action',
-    description: 'Master the framework for crafting evidence-based lesson plans.',
+    description: 'Master the framework for crafting evidence-based lesson plans tailored to middle-school ESL classrooms.',
     icon: '✦',
     duration: '~30 min',
     steps: 7,
+    progress: 0,
+    status: 'progress',
+    tint: '#E8E4FB',
+    accent: '#5B5CEC',
+    illustration: 'spark',
+    outcomes: [
+      'Identify the 5-part framework for evidence-based ESL lesson design',
+      'Distinguish input, output, and feedback loops for middle-school learners',
+      'Draft a lesson aligned to ACTFL proficiency descriptors',
+    ],
+    detailSteps: [
+      { t: 'Pre-Test', d: 'Write a prompt for a real classroom scenario; AI scores it against the rubric.', time: '5 min' },
+      { t: 'The 5-Part Framework', d: 'Walk through Desired Results, Learner Context, Evidence, Instruction, Output.', time: '5 min' },
+      { t: 'Worked Example', d: 'Drag-label the parts of a real 7th-grade lesson — annotated prompt.', time: '8 min' },
+      { t: 'Faded Example', d: 'Fill in blanks on a partially-written prompt with AI feedback per field.', time: '8 min' },
+      { t: 'Full Prompt Practice', d: 'Write a complete 5-part prompt from scratch; get AI rubric feedback.', time: '10 min' },
+      { t: 'Self-Reflection', d: 'Reflect on your prompt choices and iterate with live AI output.', time: '8 min' },
+      { t: 'Post-Test', d: 'New scenario — compare pre vs. post scores to see your growth.', time: '5 min' },
+    ],
     steps_data: [
 
       /* ── Step 0: Pre-Test ──────────────────────────────── */
@@ -285,48 +306,66 @@ const MODULES = [
     ]
   },
   {
-    id: 2,
+    id: 2, number: 2, kind: 'Co-Design Tool',
     title: 'Lesson Builder',
-    description: 'Use the actual tool to generate and refine your daily lesson plans.',
-    icon: '🏗️',
-    duration: 'Coming Soon',
-    steps: 0,
-    steps_data: []
+    description: 'Generate and refine daily lesson plans with the AI co-designer. Inputs become drafts in seconds.',
+    icon: '🏗️', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    tint: '#FCE8DA', accent: '#E89461', illustration: 'crane',
+    outcomes: [
+      'Brief the AI with grade, level, and standard in under 90 seconds',
+      'Edit lesson sections directly with tracked changes',
+      'Export to PDF, Google Doc, or share-link for co-teachers',
+    ],
+    detailSteps: [], steps_data: []
   },
   {
-    id: 3,
+    id: 3, number: 3, kind: 'Learning Module',
     title: 'Worksheet Workshop',
-    description: 'Learn the strategies for creating effective assignment worksheets.',
-    icon: '📄',
-    duration: 'Coming Soon',
-    steps: 0,
-    steps_data: []
+    description: 'Strategies for assignment worksheets that scaffold without shutting down talk.',
+    icon: '📄', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    tint: '#DCEBF7', accent: '#5B95D4', illustration: 'pen',
+    outcomes: [], detailSteps: [], steps_data: []
   },
   {
-    id: 4,
+    id: 4, number: 4, kind: 'Co-Design Tool',
     title: 'Resource Generator',
-    description: 'Access the worksheet and rubric generator to build student-ready materials.',
-    icon: '⚙️',
-    duration: 'Coming Soon',
-    steps: 0,
-    steps_data: []
+    description: 'Build worksheets, rubrics, and reading passages on demand from your existing materials.',
+    icon: '⚙️', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    tint: '#E5F0E0', accent: '#6BA259', illustration: 'gear',
+    outcomes: [], detailSteps: [], steps_data: []
   },
   {
-    id: 5,
+    id: 5, number: 5, kind: 'Learning Module',
     title: 'Evaluation Theory',
-    description: 'Gain a deep understanding of assessment and evaluation techniques.',
-    icon: '📊',
-    duration: 'Coming Soon',
-    steps: 0,
-    steps_data: []
+    description: 'Assessment fundamentals for multilingual learners — formative, summative, and everything between.',
+    icon: '📊', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    tint: '#F7DDE3', accent: '#D26A82', illustration: 'chart',
+    outcomes: [], detailSteps: [], steps_data: []
   },
   {
-    id: 6,
+    id: 6, number: 6, kind: 'Co-Design Tool',
     title: 'Student Evaluator',
-    description: 'Use the evaluation tool to grade and provide feedback on students\' homework.',
-    icon: '📝',
-    duration: 'Coming Soon',
-    steps: 0,
-    steps_data: []
+    description: 'Grade student work and surface patterns across a class with AI-assisted feedback.',
+    icon: '📝', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    tint: '#FAEFC9', accent: '#C58B27', illustration: 'clipboard',
+    outcomes: [], detailSteps: [], steps_data: []
   }
+];
+
+const SAVED_RESOURCES = [
+  { id: 'r1', kind: 'worksheet', title: 'Past tense scaffolding — 7th gr.', meta: 'Worksheet · 2 pages', updated: '2 days ago', tint: '#DCEBF7', accent: '#5B95D4' },
+  { id: 'r2', kind: 'rubric',    title: 'Speaking rubric (5 dimensions)',  meta: 'Rubric · ACTFL-aligned', updated: '5 days ago', tint: '#E8E4FB', accent: '#5B5CEC' },
+  { id: 'r3', kind: 'worksheet', title: 'Reading: Wonder Ch. 1 vocab',     meta: 'Worksheet · 1 page',  updated: 'last week', tint: '#FCE8DA', accent: '#E89461' },
+  { id: 'r4', kind: 'rubric',    title: 'Writing rubric — narrative',      meta: 'Rubric · 4 levels',   updated: 'last week', tint: '#E5F0E0', accent: '#6BA259' },
+  { id: 'r5', kind: 'worksheet', title: 'Listening cloze — pop song',      meta: 'Worksheet · audio link', updated: '2 weeks ago', tint: '#F7DDE3', accent: '#D26A82' },
+];
+
+const WEEK_PROGRESS = [
+  { lbl: 'M', state: 'done' },
+  { lbl: 'T', state: 'done' },
+  { lbl: 'W', state: 'done' },
+  { lbl: 'T', state: 'today' },
+  { lbl: 'F', state: 'idle' },
+  { lbl: 'S', state: 'idle' },
+  { lbl: 'S', state: 'idle' },
 ];
