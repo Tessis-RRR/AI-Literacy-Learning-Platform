@@ -27,35 +27,29 @@ const state = {
   sidebarCollapsed: false,
   chatMessages: [],
   chatInput: '',
-  lessonFiles: [
-    { id: 1, name: 'Past Tense Narrative', grade: '7th Grade ESL', modified: '2d ago',
-      objectives: 'Students will write 3-sentence narratives using simple past tense verbs.',
-      warmup: 'Show a comic strip. Students identify and call out past-tense verbs (5 min).',
-      mainActivity: 'Guided writing: students complete a sentence-frame paragraph\n"Yesterday, I ___ and then I ___."\nPair-share before whole-class share-out.',
-      assessment: 'Exit ticket: write 2 sentences about what they did yesterday.',
-      homework: 'Read Wonder Ch. 1. Underline 5 past-tense verbs and write their base forms.' },
-    { id: 2, name: 'Vocabulary Pre-Teach', grade: '8th Grade ESL', modified: '5d ago',
-      objectives: '', warmup: '', mainActivity: '', assessment: '', homework: '' }
+  communityNewPost: '',
+  communityPosts: [
+    { id: 1, author: 'Sarah K.', avatar: 'SK', role: 'High School ESL · Chicago', time: '2h ago',
+      text: 'Just tried the active learning framework with my 9th graders — the scaffold activity worked amazingly well! Anyone else used it with true beginners?',
+      likes: 12, liked: false, showComments: false, commentInput: '',
+      comments: [
+        { id: 1, author: 'Marco T.', avatar: 'MT', time: '1h ago', text: 'Yes! I pair it with the vocabulary pre-teach and the engagement is incredible.' },
+        { id: 2, author: 'Yuki L.',  avatar: 'YL', time: '45m ago', text: 'Which scaffold did you use? The sentence-frame one or the graphic organiser?' }
+      ]
+    },
+    { id: 2, author: 'David R.', avatar: 'DR', role: 'Middle School ESL · Austin', time: '5h ago',
+      text: 'Sharing a rubric I built with the Resource Generator — 5-dimension speaking rubric aligned to ACTFL. Free to copy!',
+      likes: 31, liked: false, showComments: false, commentInput: '',
+      comments: [
+        { id: 1, author: 'Priya N.', avatar: 'PN', time: '4h ago', text: 'This is exactly what I needed for my pronunciation unit. Thank you!' }
+      ]
+    },
+    { id: 3, author: 'Lin F.', avatar: 'LF', role: 'Adult ESL · New York', time: 'Yesterday',
+      text: 'Question for the group: how do you handle mixed-proficiency classes when doing pair work? I have A1 and B1 learners in the same room.',
+      likes: 8, liked: false, showComments: false, commentInput: '',
+      comments: []
+    }
   ],
-  lessonActiveFile: 1,
-  lessonChat: [
-    { role: 'ai', text: 'Hi Shiyu! I am your ESL Co-Pilot. Click "Ask AI" next to any section and I will help you refine it, or just ask me anything.' }
-  ],
-  lessonChatInput: '',
-  libraryActiveId: null,
-  // Lesson Builder creation flow
-  lbCreating: false,
-  lbCreateStep: 'brief',   // 'brief' | 'survey' | 'generating'
-  lbCreateBrief: '',
-  lbSurvey: {
-    gradeLevel: '',
-    proficiency: '',
-    duration: '',
-    skills: [],
-    topic: '',
-    objectives: '',
-    classSize: ''
-  },
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
@@ -290,10 +284,10 @@ function iconSVG(name, size = 18, stroke = 2) {
     folder:    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     send:      '<path d="m4 4 16 8-16 8 4-8z"/>',
     lock:      '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-    bolt:          '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
-    'chevron-right': '<path d="m9 18 6-6-6-6"/>',
-    'chevron-left':  '<path d="m15 18-6-6 6-6"/>',
-    globe:         '<circle cx="12" cy="12" r="9"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12a15.3 15.3 0 0 1 4-10z"/>',
+    bolt:      '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
+    globe:     '<circle cx="12" cy="12" r="9"/><path d="M12 3a14.5 14.5 0 0 0 0 18"/><path d="M12 3a14.5 14.5 0 0 1 0 18"/><path d="M3 12h18"/>',
+    heart:     '<path d="M12 21C12 21 3 14.5 3 8.5a4.5 4.5 0 0 1 9-0.5 4.5 4.5 0 0 1 9 .5c0 6-9 12.5-9 12.5z"/>',
+    message:   '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   };
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || '') + '</svg>';
 }
@@ -379,7 +373,8 @@ function renderShell() {
   if (nav === 'dashboard')    mainContent = renderShellDashboardContent();
   else if (nav === 'conversation') mainContent = renderShellConversationContent();
   else if (nav === 'modules') mainContent = renderShellModulesContent();
-  else if (nav === 'toolkit') mainContent = renderShellToolkitContent();
+  else if (nav === 'toolkit')    mainContent = renderShellToolkitContent();
+  else if (nav === 'community')  mainContent = renderShellCommunityContent();
   else if (nav === 'step')    mainContent = renderShellStepContent();
   else if (nav === 'complete') mainContent = renderComplete();
   else if (nav === 'detail')       mainContent = renderShellDetailContent();
@@ -407,6 +402,7 @@ function renderShellSidebar(activeNav) {
     { id: 'toolkit',   label: 'Toolkit',    icon: 'builder', badge: '3' },
     { id: 'library',   label: 'My Library', icon: 'folder' },
     { id: 'students',  label: 'Students',   icon: 'users' },
+    { id: 'community', label: 'Community',  icon: 'globe' },
   ];
   const settings = [{ id: 'settings', label: 'Settings', icon: 'settings' }];
   const detailMod = state.dashModuleId ? MODULES.find(function(m) { return m.id === state.dashModuleId; }) : null;
@@ -754,559 +750,117 @@ function renderShellDetailContent() {
   );
 }
 
-/* ── Lesson Builder ─────────────────────────────────────── */
-function renderShellLessonBuilderContent() {
-  // 3-panel layout is always present; only the middle panel changes
-  return (
-    '<div class="lb-workspace">' +
-    renderLBLibraryPanel() +
-    renderLBMiddlePanel() +
-    renderLBChatPanel() +
-    '</div>'
-  );
-}
+function renderShellCommunityContent() {
+  var posts = state.communityPosts || [];
 
-function renderLBLibraryPanel() {
-  var files = state.lessonFiles || [];
-  var active = state.lessonActiveFile;
-  var filesHtml = files.length ? files.map(function(f) {
-    var cls = f.id === active ? ' lb-file-active' : '';
-    return (
-      '<div class="lb-file-item' + cls + '" onclick="lbSelectFile(' + f.id + ')">' +
-      '<div class="lb-file-icon">' + iconSVG('file', 14) + '</div>' +
-      '<div class="lb-file-info">' +
-      '<div class="lb-file-name">' + escHtml(f.name) + '</div>' +
-      '<div class="lb-file-meta">' + escHtml(f.grade || 'No grade') + ' · ' + escHtml(f.modified) + '</div>' +
-      '</div></div>'
-    );
-  }).join('') : '<div class="lb-library-empty">No materials yet</div>';
-
-  return (
-    '<div class="lb-files">' +
-    '<div class="lb-files-head">' +
-    '<span class="lb-files-label">LIBRARY</span>' +
-    '<button class="lb-new-btn" onclick="lbNewFile()" title="New material">' + iconSVG('plus', 14) + '</button>' +
+  // Compose box
+  var compose = (
+    '<div class="cm-compose">' +
+    '<div class="cm-compose-row">' +
+    '<div class="cm-avatar cm-me">SY</div>' +
+    '<textarea class="cm-compose-input" id="cm-new-post" placeholder="Share something with the community…" rows="2" ' +
+    'oninput="state.communityNewPost=this.value;this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'">' +
+    escHtml(state.communityNewPost || '') +
+    '</textarea>' +
     '</div>' +
-    '<div class="lb-file-list">' + filesHtml + '</div>' +
-    '<button class="lb-library-link" onclick="shellNav(\'library\')">' +
-    iconSVG('folder', 13) + ' View full library</button>' +
-    '</div>'
-  );
-}
-
-function renderLBMiddlePanel() {
-  if (state.lbCreating) {
-    if (state.lbCreateStep === 'brief')      return renderLBBriefPanel();
-    if (state.lbCreateStep === 'survey')     return renderLBSurveyPanel();
-    if (state.lbCreateStep === 'generating') return renderLBGeneratingPanel();
-  }
-  var f = (state.lessonFiles || []).find(function(x) { return x.id === state.lessonActiveFile; });
-  if (!f) return renderLBEmptyState();
-  return renderLBEditor();
-}
-
-function renderLBEmptyState() {
-  return (
-    '<div class="lb-editor lb-empty-state">' +
-    '<div class="lb-empty-inner">' +
-    '<div class="lb-empty-icon">' + iconSVG('sparkle', 36, 1.5) + '</div>' +
-    '<h3 class="lb-empty-title">Start something new</h3>' +
-    '<p class="lb-empty-sub">Pick a material from your library, or click + to create one with AI.</p>' +
-    '<button class="lb-empty-btn" onclick="lbNewFile()">' + iconSVG('plus', 15) + ' New material</button>' +
+    '<div class="cm-compose-foot">' +
+    '<button class="cm-post-btn" onclick="submitCommunityPost()">Post</button>' +
     '</div>' +
     '</div>'
   );
-}
 
-function renderLBBriefPanel() {
-  var chips = [
-    'A reading comprehension unit on climate change for 8th graders',
-    'Vocabulary building lesson using academic word lists',
-    'Speaking activity around job interviews',
-    'Grammar mini-lesson: present perfect vs simple past'
-  ];
-  var chipsHtml = chips.map(function(c) {
-    return '<button class="lb-brief-chip" onclick="lbSetBrief(' + JSON.stringify(c) + ')">' + escHtml(c) + '</button>';
-  }).join('');
-  return (
-    '<div class="lb-editor lb-panel-flow">' +
-    '<div class="lb-panel-flow-inner">' +
-    '<div class="lb-panel-logo">' + iconSVG('sparkle', 28, 1.5) + '</div>' +
-    '<h3 class="lb-panel-title">What are you working on?</h3>' +
-    '<p class="lb-panel-sub">Describe your lesson and I\'ll ask a few questions before building the plan.</p>' +
-    '<textarea id="lb-brief-ta" class="lb-brief-ta" rows="4" placeholder="e.g. A two-day reading unit on folk tales for 6th-grade ESL students..." ' +
-    'oninput="state.lbCreateBrief=this.value">' + escHtml(state.lbCreateBrief) + '</textarea>' +
-    '<div class="lb-brief-chips">' + chipsHtml + '</div>' +
-    '<div class="lb-panel-actions">' +
-    '<button class="lb-creation-cancel" onclick="lbCancelCreate()">Cancel</button>' +
-    '<button class="lb-creation-next" onclick="lbSubmitBrief()">Continue ' + iconSVG('chevron-right', 14) + '</button>' +
-    '</div>' +
-    '</div>' +
-    '</div>'
-  );
-}
-
-function renderLBSurveyPanel() {
-  var s = state.lbSurvey;
-
-  function pills(field, opts) {
-    return opts.map(function(o) {
-      var active = (field === 'skills') ? (s.skills.indexOf(o) !== -1) : (s[field] === o);
-      var cls = active ? ' lb-pill-active' : '';
-      var click = (field === 'skills')
-        ? 'lbToggleSkill(' + JSON.stringify(o) + ')'
-        : 'lbSetSurvey(' + JSON.stringify(field) + ',' + JSON.stringify(o) + ')';
-      return '<button class="lb-pill' + cls + '" onclick="' + click + '">' + escHtml(o) + '</button>';
+  // Posts
+  var postsHtml = posts.map(function(p) {
+    var commentsHtml = p.comments.map(function(c) {
+      return (
+        '<div class="cm-comment">' +
+        '<div class="cm-avatar cm-sm">' + escHtml(c.avatar) + '</div>' +
+        '<div class="cm-comment-body">' +
+        '<div class="cm-comment-head"><span class="cm-comment-author">' + escHtml(c.author) + '</span><span class="cm-time">' + escHtml(c.time) + '</span></div>' +
+        '<div class="cm-comment-text">' + escHtml(c.text) + '</div>' +
+        '</div></div>'
+      );
     }).join('');
-  }
 
-  function row(label, hint, field, opts) {
+    var commentInput = p.showComments
+      ? ('<div class="cm-reply-row">' +
+         '<div class="cm-avatar cm-sm cm-me">SY</div>' +
+         '<input class="cm-reply-input" type="text" placeholder="Write a comment…" ' +
+         'value="' + escHtml(p.commentInput || '') + '" ' +
+         'oninput="state.communityPosts.find(function(x){return x.id===' + p.id + '}).commentInput=this.value" ' +
+         'onkeydown="if(event.key===\'Enter\'){submitCommunityComment(' + p.id + ')}" />' +
+         '</div>')
+      : '';
+
     return (
-      '<div class="lb-survey-row">' +
-      '<div class="lb-survey-q"><span class="lb-survey-label">' + label + '</span>' +
-      (hint ? '<span class="lb-survey-hint">' + hint + '</span>' : '') +
+      '<div class="cm-post">' +
+      '<div class="cm-post-head">' +
+      '<div class="cm-avatar">' + escHtml(p.avatar) + '</div>' +
+      '<div class="cm-post-meta">' +
+      '<span class="cm-author">' + escHtml(p.author) + '</span>' +
+      '<span class="cm-role">' + escHtml(p.role) + '</span>' +
       '</div>' +
-      '<div class="lb-survey-pills">' + pills(field, opts) + '</div>' +
-      '</div>'
-    );
-  }
-
-  return (
-    '<div class="lb-editor lb-panel-flow">' +
-    '<div class="lb-panel-flow-inner">' +
-    '<div class="lb-panel-brief-badge">' + escHtml(state.lbCreateBrief.substring(0, 100)) + (state.lbCreateBrief.length > 100 ? '...' : '') + '</div>' +
-    '<h3 class="lb-panel-title" style="margin-bottom:20px">Tell me about your class</h3>' +
-    row('Grade Level', null, 'gradeLevel', ['K-2','3-5','6-8','9-10','11-12','Adult']) +
-    row('Proficiency', null, 'proficiency', ['Newcomer','Beginning','Intermediate','Advanced']) +
-    row('Duration', null, 'duration', ['30 min','45 min','60 min','90 min','Multi-day']) +
-    row('Skill Focus', '(pick all that apply)', 'skills', ['Reading','Writing','Speaking','Listening','Grammar','Vocabulary']) +
-    '<div class="lb-survey-row">' +
-    '<div class="lb-survey-q"><span class="lb-survey-label">Topic / Text</span></div>' +
-    '<input class="lb-survey-input" type="text" placeholder="e.g. The Giver, climate change, job applications..." ' +
-    'value="' + escHtml(s.topic) + '" oninput="state.lbSurvey.topic=this.value" />' +
-    '</div>' +
-    '<div class="lb-survey-row">' +
-    '<div class="lb-survey-q"><span class="lb-survey-label">Class Size</span></div>' +
-    '<div class="lb-survey-pills">' + pills('classSize', ['1-5','6-15','16-25','26+']) + '</div>' +
-    '</div>' +
-    '<div class="lb-panel-actions">' +
-    '<button class="lb-creation-cancel" onclick="lbCancelCreate()">Cancel</button>' +
-    '<button class="lb-creation-back" onclick="lbBackToBrief()">' + iconSVG('chevron-left', 14) + ' Back</button>' +
-    '<button class="lb-creation-next" onclick="lbSubmitSurvey()">' + iconSVG('sparkle', 14, 2) + ' Generate</button>' +
-    '</div>' +
-    '</div>' +
-    '</div>'
-  );
-}
-
-function renderLBGeneratingPanel() {
-  var steps = [
-    'Reading your brief...',
-    'Mapping learning objectives...',
-    'Designing warm-up activity...',
-    'Drafting main activity...',
-    'Writing formative assessment...',
-    'Polishing and reviewing...'
-  ];
-  var stepsHtml = steps.map(function(s, i) {
-    return '<div class="lb-gen-step" style="animation-delay:' + (i * 0.4) + 's">' +
-      iconSVG('check', 14) + ' ' + escHtml(s) + '</div>';
-  }).join('');
-  return (
-    '<div class="lb-editor lb-panel-flow">' +
-    '<div class="lb-panel-flow-inner lb-panel-center">' +
-    '<div class="lb-gen-spinner">' +
-    '<div class="lb-gen-ring"></div>' +
-    iconSVG('sparkle', 28, 2) +
-    '</div>' +
-    '<h3 class="lb-panel-title" style="margin-top:20px">Building your lesson plan...</h3>' +
-    '<p class="lb-panel-sub">This takes just a moment</p>' +
-    '<div class="lb-gen-steps">' + stepsHtml + '</div>' +
-    '</div>' +
-    '</div>'
-  );
-}
-
-function renderLBEditor() {
-  var files = state.lessonFiles || [];
-  var f = files.find(function(x) { return x.id === state.lessonActiveFile; });
-  if (!f) return '<div class="lb-editor"><div class="lb-editor-empty">No lesson selected.</div></div>';
-
-  function section(field, label, placeholder, rows) {
-    var val = escHtml(f[field] || '');
-    return (
-      '<div class="lb-section">' +
-      '<div class="lb-section-head">' +
-      '<span class="lb-section-label">' + label + '</span>' +
-      '<button class="lb-ask-btn" onclick="lbAskAbout(\'' + field + '\',\'' + label + '\')">' +
-      iconSVG('sparkle', 12, 2) + ' Ask AI</button>' +
+      '<span class="cm-time">' + escHtml(p.time) + '</span>' +
       '</div>' +
-      '<textarea class="lb-section-body" rows="' + rows + '" placeholder="' + placeholder + '" ' +
-      'oninput="lbUpdateField(' + f.id + ',\'' + field + '\',this.value)">' + val + '</textarea>' +
-      '</div>'
-    );
-  }
-
-  return (
-    '<div class="lb-editor">' +
-    '<div class="lb-editor-inner">' +
-    '<div class="lb-doc-header">' +
-    '<input class="lb-doc-title" value="' + escHtml(f.name) + '" placeholder="Lesson title…" ' +
-    'oninput="lbUpdateField(' + f.id + ',\'name\',this.value)" />' +
-    '<input class="lb-doc-grade" value="' + escHtml(f.grade) + '" placeholder="Grade & level…" ' +
-    'oninput="lbUpdateField(' + f.id + ',\'grade\',this.value)" />' +
-    '</div>' +
-    section('objectives',    'Learning Objectives',   'What will students know or do by the end?', 3) +
-    section('warmup',        'Warm-Up',               'How will you activate prior knowledge?',    3) +
-    section('mainActivity',  'Main Activity',         'Describe the core task or instruction…',    5) +
-    section('assessment',    'Formative Assessment',  'How will you check for understanding?',     3) +
-    section('homework',      'Homework / Extension',  'Optional follow-up…',                       2) +
-    '</div></div>'
-  );
-}
-
-function renderLBChatPanel() {
-  var msgs = state.lessonChat || [];
-  var msgsHtml = msgs.map(function(m) {
-    var cls = m.role === 'user' ? 'lb-msg-user' : 'lb-msg-ai';
-    return (
-      '<div class="lb-msg ' + cls + '">' +
-      '<div class="lb-msg-bubble">' + escHtml(m.text) + '</div>' +
+      '<p class="cm-post-text">' + escHtml(p.text) + '</p>' +
+      '<div class="cm-post-actions">' +
+      '<button class="cm-action-btn' + (p.liked ? ' cm-liked' : '') + '" onclick="likeCommunityPost(' + p.id + ')">' +
+      iconSVG('heart', 15, 2) + '<span>' + p.likes + '</span></button>' +
+      '<button class="cm-action-btn" onclick="toggleCommunityComments(' + p.id + ')">' +
+      iconSVG('message', 15, 2) + '<span>' + p.comments.length + (p.comments.length === 1 ? ' comment' : ' comments') + '</span></button>' +
+      '</div>' +
+      (p.showComments
+        ? '<div class="cm-comments">' + commentsHtml + commentInput + '</div>'
+        : '') +
       '</div>'
     );
   }).join('');
 
   return (
-    '<div class="lb-chat">' +
-    '<div class="lb-chat-head">' + iconSVG('sparkle', 14, 2) + ' ESL Co-Pilot</div>' +
-    '<div class="lb-chat-msgs" id="lb-chat-msgs">' + msgsHtml + '</div>' +
-    '<div class="lb-chat-input-wrap">' +
-    '<textarea id="lb-chat-ta" class="lb-chat-ta" rows="2" placeholder="Ask about your lesson…" ' +
-    'oninput="state.lessonChatInput=this.value" ' +
-    'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();lbSendChat()}">' +
-    escHtml(state.lessonChatInput || '') + '</textarea>' +
-    '<button class="lb-chat-send" onclick="lbSendChat()">' + iconSVG('send', 15) + '</button>' +
-    '</div></div>'
+    '<div class="cm-layout">' +
+    '<div class="sh-section-head" style="margin-bottom:4px">' +
+    '<div><h2>Community <span class="sh-accent">feed</span></h2><div class="sh-sub">Share ideas and questions with fellow ESL educators.</div></div>' +
+    '</div>' +
+    compose +
+    '<div class="cm-feed">' + postsHtml + '</div>' +
+    '</div>'
   );
 }
 
-function lbSelectFile(id) {
-  state.lessonActiveFile = id;
-  render();
-}
-
-function lbNewFile() {
-  state.lbCreating = true;
-  state.lbCreateStep = 'brief';
-  state.lbCreateBrief = '';
-  state.lbSurvey = { gradeLevel: '', proficiency: '', duration: '', skills: [], topic: '', objectives: '', classSize: '' };
-  render();
-}
-
-/* ── Lesson Builder creation flow renders ───────────────────────── */
-
-function lbUpdateField(fileId, field, value) {
-  var f = state.lessonFiles.find(function(x) { return x.id === fileId; });
-  if (f) { f[field] = value; f.modified = 'Just now'; }
-}
-
-function lbAskAbout(field, label) {
-  var f = state.lessonFiles.find(function(x) { return x.id === state.lessonActiveFile; });
-  var current = f ? (f[field] || '').trim() : '';
-  var prompt = current
-    ? 'Help me improve this "' + label + '" section: ' + current
-    : 'Suggest a "' + label + '" section for a ' + (f ? f.grade : 'ESL') + ' lesson.';
-  state.lessonChatInput = prompt;
-  render();
-  setTimeout(function() {
-    var ta = document.getElementById('lb-chat-ta');
-    if (ta) { ta.focus(); ta.select(); }
-    var msgs = document.getElementById('lb-chat-msgs');
-    if (msgs) msgs.scrollTop = msgs.scrollHeight;
-  }, 0);
-}
-
-function lbSendChat() {
-  var ta = document.getElementById('lb-chat-ta');
-  var text = ta ? ta.value.trim() : (state.lessonChatInput || '').trim();
+function submitCommunityPost() {
+  var text = (state.communityNewPost || '').trim();
   if (!text) return;
-  state.lessonChat.push({ role: 'user', text: text });
-  state.lessonChatInput = '';
-  state.lessonChat.push({ role: 'ai', text: '...' });
-  render();
-  setTimeout(function() {
-    var msgs = document.getElementById('lb-chat-msgs');
-    if (msgs) msgs.scrollTop = msgs.scrollHeight;
-  }, 0);
-
-  var activeFile = state.lessonFiles.find(function(f) { return f.id === state.lessonActiveFile; });
-  fetch('/api/lesson-chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: text,
-      lessonContext: activeFile ? {
-        name: activeFile.name, grade: activeFile.grade,
-        objectives: activeFile.objectives, mainActivity: activeFile.mainActivity
-      } : {}
-    })
-  })
-  .then(function(res) { return res.json(); })
-  .then(function(data) {
-    var msgs = state.lessonChat;
-    if (msgs.length && msgs[msgs.length - 1].text === '...') {
-      msgs[msgs.length - 1].text = data.reply || '(no response)';
-    }
-    render();
-    setTimeout(function() {
-      var el = document.getElementById('lb-chat-msgs');
-      if (el) el.scrollTop = el.scrollHeight;
-    }, 0);
-  })
-  .catch(function(err) {
-    var msgs = state.lessonChat;
-    if (msgs.length && msgs[msgs.length - 1].text === '...') {
-      msgs[msgs.length - 1].text = 'Error: ' + err.message;
-    }
-    render();
+  state.communityPosts.unshift({
+    id: Date.now(), author: 'Shiyu Z.', avatar: 'SY', role: 'Middle School ESL',
+    time: 'Just now', text: text, likes: 0, liked: false,
+    showComments: false, commentInput: '', comments: []
   });
-}
-
-function lbSetBrief(text) {
-  state.lbCreateBrief = text;
-  render();
-  setTimeout(function() {
-    var ta = document.getElementById('lb-brief-ta');
-    if (ta) { ta.value = text; ta.focus(); }
-  }, 0);
-}
-
-function lbCancelCreate() {
-  state.lbCreating = false;
-  state.lbCreateStep = 'brief';
+  state.communityNewPost = '';
   render();
 }
 
-function lbBackToBrief() {
-  state.lbCreateStep = 'brief';
+function likeCommunityPost(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (!p) return;
+  p.liked = !p.liked;
+  p.likes += p.liked ? 1 : -1;
   render();
 }
 
-function lbSubmitBrief() {
-  var brief = state.lbCreateBrief.trim();
-  if (!brief) {
-    var ta = document.getElementById('lb-brief-ta');
-    if (ta) { ta.focus(); ta.style.borderColor = 'var(--red-400, #f87171)'; }
-    return;
-  }
-  state.lbCreateStep = 'survey';
+function toggleCommunityComments(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (p) p.showComments = !p.showComments;
   render();
 }
 
-function lbSetSurvey(field, value) {
-  state.lbSurvey[field] = value;
+function submitCommunityComment(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (!p) return;
+  var text = (p.commentInput || '').trim();
+  if (!text) return;
+  p.comments.push({ id: Date.now(), author: 'Shiyu Z.', avatar: 'SY', time: 'Just now', text: text });
+  p.commentInput = '';
   render();
-}
-
-function lbToggleSkill(skill) {
-  var idx = state.lbSurvey.skills.indexOf(skill);
-  if (idx === -1) state.lbSurvey.skills.push(skill);
-  else state.lbSurvey.skills.splice(idx, 1);
-  render();
-}
-
-function lbSubmitSurvey() {
-  var s = state.lbSurvey;
-  state.lbCreateStep = 'generating';
-  render();
-
-  API.generate && fetch('/api/lesson-generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ brief: state.lbCreateBrief, survey: s })
-  })
-  .then(function(res) { return res.json(); })
-  .then(function(data) {
-    if (data.error) throw new Error(data.error);
-    var newId = Date.now();
-    state.lessonFiles.push({
-      id: newId,
-      name: data.name || state.lbCreateBrief.substring(0, 50),
-      grade: (s.gradeLevel || 'ESL') + ' - ' + (s.proficiency || 'Intermediate'),
-      modified: 'Just now',
-      objectives:   data.objectives   || '',
-      warmup:       data.warmup       || '',
-      mainActivity: data.mainActivity || '',
-      assessment:   data.assessment   || '',
-      homework:     data.homework     || ''
-    });
-    state.lessonActiveFile = newId;
-    state.lbCreating = false;
-    state.lbCreateStep = 'brief';
-    state.lessonChat.push({
-      role: 'ai',
-      text: 'Your lesson plan for "' + data.name + '" is ready! Review each section and click Ask AI to refine any part.'
-    });
-    render();
-    setTimeout(function() {
-      var msgs = document.getElementById('lb-chat-msgs');
-      if (msgs) msgs.scrollTop = msgs.scrollHeight;
-    }, 100);
-  })
-  .catch(function(err) {
-    state.lbCreateStep = 'survey';
-    state.lessonChat.push({ role: 'ai', text: 'Sorry, I could not generate the lesson plan: ' + err.message });
-    render();
-  });
-}
-
-
-function renderShellLibraryContent() {
-  var files = state.lessonFiles || [];
-  var activeId = state.libraryActiveId;
-  // Auto-select first if none chosen
-  if (!activeId && files.length) activeId = files[0].id;
-
-  var listHtml = files.length ? files.map(function(f) {
-    var cls = f.id === activeId ? ' lib-item-active' : '';
-    return (
-      '<div class="lib-item' + cls + '" onclick="libSelect(' + f.id + ')">' +
-      '<div class="lib-item-icon">' + iconSVG('file', 16) + '</div>' +
-      '<div class="lib-item-body">' +
-      '<div class="lib-item-name">' + escHtml(f.name) + '</div>' +
-      '<div class="lib-item-meta">' + escHtml(f.grade || 'No grade') + ' \xb7 ' + escHtml(f.modified) + '</div>' +
-      '</div>' +
-      '</div>'
-    );
-  }).join('') : '<div class="lib-sidebar-empty">' + iconSVG('file', 20) + '<span>No saved materials</span></div>';
-
-  var active = files.find(function(f) { return f.id === activeId; });
-  var detailHtml = active ? renderLibDetail(active) : (
-    '<div class="lib-detail-empty">' +
-    '<div>' + iconSVG('folder', 40) + '</div>' +
-    '<h3>Nothing selected</h3>' +
-    '<p>Choose a material from the list to preview it.</p>' +
-    '</div>'
-  );
-
-  if (!files.length) {
-    return (
-      '<div class="lib-empty-full">' +
-      '<div>' + iconSVG('folder', 40) + '</div>' +
-      '<h3>Your library is empty</h3>' +
-      '<p>Materials you create in the Lesson Builder are saved here.</p>' +
-      '<button class="lb-empty-btn" onclick="shellNav(\'lesson-builder\')">' + iconSVG('sparkle', 14, 2) + ' Open Lesson Builder</button>' +
-      '</div>'
-    );
-  }
-
-  return (
-    '<div class="lib-shell">' +
-    '<div class="lib-sidebar">' +
-    '<div class="lib-sidebar-head">' +
-    '<span class="lib-sidebar-label">SAVED FILES</span>' +
-    '</div>' +
-    '<div class="lib-sidebar-list">' + listHtml + '</div>' +
-    '</div>' +
-    '<div class="lib-detail">' + detailHtml + '</div>' +
-    '</div>'
-  );
-}
-
-function renderLibDetail(f) {
-  function block(label, value) {
-    if (!value || !value.trim()) return '';
-    return (
-      '<div class="lib-detail-block">' +
-      '<div class="lib-detail-label">' + escHtml(label) + '</div>' +
-      '<div class="lib-detail-value">' + escHtml(value).replace(/\n/g, '<br>') + '</div>' +
-      '</div>'
-    );
-  }
-  return (
-    '<div class="lib-detail-inner">' +
-    '<div class="lib-detail-header">' +
-    '<div>' +
-    '<h2 class="lib-detail-title">' + escHtml(f.name) + '</h2>' +
-    '<div class="lib-detail-meta">' + escHtml(f.grade || 'No grade') + ' \xb7 edited ' + escHtml(f.modified) + '</div>' +
-    '</div>' +
-    '<div class="lib-detail-actions">' +
-    '<button class="lib-export-btn" onclick="libExportJSON(' + f.id + ')">' + iconSVG('sheet', 14) + ' JSON</button>' +
-    '<button class="lib-export-btn" onclick="libExportWord(' + f.id + ')">' + iconSVG('file', 14) + ' Word</button>' +
-    '<button class="lib-export-btn lib-export-primary" onclick="libExportPDF(' + f.id + ')">' + iconSVG('sheet', 14) + ' PDF</button>' +
-    '</div>' +
-    '</div>' +
-    block('Learning Objectives', f.objectives) +
-    block('Warm-Up', f.warmup) +
-    block('Main Activity', f.mainActivity) +
-    block('Formative Assessment', f.assessment) +
-    block('Homework / Extension', f.homework) +
-    '</div>'
-  );
-}
-
-function libSelect(id) {
-  state.libraryActiveId = id;
-  var scroll = document.querySelector('#app-main .sh-scroll');
-  if (scroll) scroll.innerHTML = renderShellLibraryContent();
-}
-
-function libExportJSON(id) {
-  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
-  if (!f) return;
-  var json = JSON.stringify({ name: f.name, grade: f.grade, objectives: f.objectives, warmup: f.warmup, mainActivity: f.mainActivity, assessment: f.assessment, homework: f.homework }, null, 2);
-  var blob = new Blob([json], { type: 'application/json' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (f.name || 'lesson').replace(/[^a-z0-9]/gi, '_') + '.json';
-  a.click();
-}
-
-function libExportWord(id) {
-  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
-  if (!f) return;
-  function row(label, value) {
-    if (!value || !value.trim()) return '';
-    return '<h2 style="font-size:13pt;font-family:Calibri;margin-top:18pt;margin-bottom:4pt;color:#2F3742">' + label + '</h2>' +
-      '<p style="font-size:11pt;font-family:Calibri;margin:0;white-space:pre-wrap;line-height:1.6">' + value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>';
-  }
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + f.name + '</title></head><body style="margin:40pt 60pt;font-family:Calibri">' +
-    '<h1 style="font-size:18pt;margin-bottom:4pt">' + f.name.replace(/&/g,'&amp;') + '</h1>' +
-    '<p style="color:#666;font-size:10pt;margin-top:0">' + (f.grade || '') + '</p>' +
-    row('Learning Objectives', f.objectives) +
-    row('Warm-Up', f.warmup) +
-    row('Main Activity', f.mainActivity) +
-    row('Formative Assessment', f.assessment) +
-    row('Homework / Extension', f.homework) +
-    '</body></html>';
-  var blob = new Blob(['﻿' + html], { type: 'application/msword' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (f.name || 'lesson').replace(/[^a-z0-9]/gi, '_') + '.doc';
-  a.click();
-}
-
-function libExportPDF(id) {
-  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
-  if (!f) return;
-  function row(label, value) {
-    if (!value || !value.trim()) return '';
-    return '<div style="margin-bottom:18px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:6px">' + label + '</div>' +
-      '<div style="font-size:12px;line-height:1.7;white-space:pre-wrap;color:#1e293b">' + value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>';
-  }
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + f.name + '</title>' +
-    '<style>body{margin:40px 56px;font-family:"Segoe UI",Arial,sans-serif}h1{font-size:22px;margin-bottom:2px;color:#0f172a}@media print{body{margin:0}}</style>' +
-    '</head><body>' +
-    '<h1>' + f.name.replace(/&/g,'&amp;') + '</h1>' +
-    '<p style="color:#94a3b8;font-size:11px;margin-top:0;margin-bottom:28px">' + (f.grade || '') + '</p>' +
-    row('Learning Objectives', f.objectives) +
-    row('Warm-Up', f.warmup) +
-    row('Main Activity', f.mainActivity) +
-    row('Formative Assessment', f.assessment) +
-    row('Homework / Extension', f.homework) +
-    '<script>window.onload=function(){window.print()}<\/script></body></html>';
-  var w = window.open('', '_blank');
-  if (w) { w.document.write(html); w.document.close(); }
 }
 
 function renderShellSimpleContent(nav) {
@@ -1314,6 +868,7 @@ function renderShellSimpleContent(nav) {
     toolkit:  { icon: 'builder',  title: 'Toolkit',         body: 'Browse the co-design tools to help you build worksheets, rubrics, and lesson plans.' },
     library:  { icon: 'folder',   title: 'My Library',      body: 'Every worksheet and rubric you save lives here. Use the Resource Generator inside any module to add more.' },
     students: { icon: 'users',    title: 'Students',        body: 'Add a roster to start using the Student Evaluator. We\'ll keep it private to your account.' },
+    community: { icon: 'globe',    title: 'Community',       body: 'Connect with other ESL educators — share lessons, swap tips, and learn together.' },
     settings: { icon: 'settings', title: 'Settings',        body: 'Profile, notifications, and AI preferences will live here.' },
   };
   const c = configs[nav] || { icon: 'home', title: 'Dashboard', body: '' };
