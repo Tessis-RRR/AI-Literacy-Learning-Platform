@@ -24,6 +24,9 @@ const state = {
   dashModuleId: null,
   dashSearch: '',
   dashFilter: 'all',
+  sidebarCollapsed: false,
+  chatMessages: [],
+  chatInput: '',
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
@@ -124,6 +127,7 @@ function navigateDashboard() {
 function navigateStep(moduleId, stepIndex) {
   Tracker.endStep();
   state.view = 'step';
+  state.dashNav = 'step';
   state.moduleId = moduleId;
   state.stepIndex = stepIndex;
   state.quizAnswers = {};
@@ -152,6 +156,7 @@ function nextStep() {
   } else {
     markModuleComplete(state.moduleId);
     state.view = 'complete';
+    state.dashNav = 'complete';
     render();
   }
 }
@@ -171,8 +176,8 @@ function render() {
   const main = document.getElementById('app-main');
   switch (state.view) {
     case 'dashboard': main.innerHTML = renderDashboard(); break;
-    case 'step': main.innerHTML = renderStep(); attachStepListeners(); break;
-    case 'complete': main.innerHTML = renderComplete(); break;
+    case 'step': main.innerHTML = renderShell(); attachStepListeners(); break;
+    case 'complete': main.innerHTML = renderShell(); break;
     default: main.innerHTML = renderDashboard();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -181,7 +186,7 @@ function render() {
 /* ── Header ─────────────────────────────────────────────── */
 function renderHeader() {
   const header = document.getElementById('app-header');
-  if (state.view === 'dashboard') {
+  if (state.view === 'dashboard' || state.view === 'step' || state.view === 'complete') {
     header.classList.add('hidden');
     document.body.classList.add('dashboard-active');
     return;
@@ -284,10 +289,17 @@ function heroOrnamentSVG() {
 
 /* ── Shell navigation ────────────────────────────────────── */
 function shellNav(nav, moduleId) {
+  state.view = 'dashboard';
   state.dashNav = nav;
   state.dashModuleId = moduleId || null;
   if (nav !== 'modules' && nav !== 'detail') state.dashSearch = '';
   render();
+}
+
+function toggleSidebar() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  const shell = document.querySelector('.app-shell');
+  if (shell) shell.classList.toggle('sidebar-collapsed', state.sidebarCollapsed);
 }
 
 function shellOpenModule(id) {
@@ -332,11 +344,16 @@ function renderShell() {
   const nav = state.dashNav || 'dashboard';
   let mainContent;
   if (nav === 'dashboard')    mainContent = renderShellDashboardContent();
+  else if (nav === 'conversation') mainContent = renderShellConversationContent();
   else if (nav === 'modules') mainContent = renderShellModulesContent();
+  else if (nav === 'toolkit') mainContent = renderShellToolkitContent();
+  else if (nav === 'step')    mainContent = renderShellStepContent();
+  else if (nav === 'complete') mainContent = renderComplete();
   else if (nav === 'detail')  mainContent = renderShellDetailContent();
   else                        mainContent = renderShellSimpleContent(nav);
+  const shellCls = state.sidebarCollapsed ? ' sidebar-collapsed' : '';
   return (
-    '<div class="app-shell">' +
+    '<div class="app-shell' + shellCls + '">' +
     renderShellSidebar(nav) +
     '<main class="sh-main">' +
     renderShellTopBar() +
@@ -349,14 +366,19 @@ function renderShell() {
 
 function renderShellSidebar(activeNav) {
   const items = [
-    { id: 'dashboard', label: 'Dashboard',      icon: 'home' },
-    { id: 'modules',   label: 'Modules',         icon: 'book',    badge: '6' },
-    { id: 'builder',   label: 'Lesson Builder',  icon: 'builder' },
-    { id: 'library',   label: 'My Library',      icon: 'folder' },
-    { id: 'students',  label: 'Students',        icon: 'users' },
+    { id: 'dashboard',    label: 'Dashboard',    icon: 'home' },
+    { id: 'conversation', label: 'Conversation', icon: 'send' },
+    { id: 'modules',   label: 'Modules',    icon: 'book',    badge: '3' },
+    { id: 'toolkit',   label: 'Toolkit',    icon: 'builder', badge: '3' },
+    { id: 'library',   label: 'My Library', icon: 'folder' },
+    { id: 'students',  label: 'Students',   icon: 'users' },
   ];
   const settings = [{ id: 'settings', label: 'Settings', icon: 'settings' }];
-  const sidebarActive = activeNav === 'detail' ? 'modules' : activeNav;
+  const detailMod = state.dashModuleId ? MODULES.find(function(m) { return m.id === state.dashModuleId; }) : null;
+  const detailOrigin = detailMod && detailMod.kind === 'Co-Design Tool' ? 'toolkit' : 'modules';
+  const stepMod = state.moduleId ? MODULES.find(function(m) { return m.id === state.moduleId; }) : null;
+  const stepOrigin = stepMod && stepMod.kind === 'Co-Design Tool' ? 'toolkit' : 'modules';
+  const sidebarActive = activeNav === 'detail' ? detailOrigin : activeNav === 'step' ? stepOrigin : activeNav;
   const navItems = items.map(function(it) {
     const cls = sidebarActive === it.id ? ' active' : '';
     const badge = it.badge ? '<span class="sb-badge">' + it.badge + '</span>' : '';
@@ -383,12 +405,7 @@ function renderShellTopBar() {
   const searchVal = (state.dashSearch || '').replace(/"/g, '&quot;');
   return (
     '<div class="sh-topbar">' +
-    '<div class="sh-search">' + iconSVG('search', 18) +
-    '<input type="text" placeholder="Search modules, lessons, worksheets…" value="' + searchVal + '" oninput="state.dashSearch=this.value;render()"/>' +
-    '<kbd>⌘K</kbd></div>' +
-    '<div class="sh-tb-progress"><span class="sh-tb-plabel">Progress</span>' +
-    '<div class="sh-tb-pbar"><div style="width:' + pct + '%"></div></div>' +
-    '<span class="sh-tb-ppct">' + pct + '%</span></div>' +
+    '<button class="sh-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">' + iconSVG('list', 18) + '</button>' +
     '<div style="flex:1"></div>' +
     '<button class="sh-icon-btn" title="Messages">' + iconSVG('mail', 18) + '</button>' +
     '<button class="sh-icon-btn" title="Notifications">' + iconSVG('bell', 18) + '<span class="sh-dot"></span></button>' +
@@ -463,10 +480,8 @@ function renderShellDashboardContent() {
     );
   }).join('');
 
-  const cardsHtml = top.map(function(m, i) { return renderModuleCard(m, i); }).join('');
-  const emptyHtml = top.length === 0
-    ? '<div class="sh-placeholder"><h2>No matches for &ldquo;' + escHtml(state.dashSearch || '') + '&rdquo;</h2><p>Try searching by topic or clear the search to see everything.</p></div>'
-    : '';
+  const toolkitMods = MODULES.filter(function(m) { return m.kind === 'Co-Design Tool'; });
+  const cardsHtml = toolkitMods.map(function(m, i) { return renderModuleCard(m, i); }).join('');
 
   return (
     '<section class="sh-hero sh-fade-up">' +
@@ -474,7 +489,7 @@ function renderShellDashboardContent() {
     '<div class="sh-hero-body">' +
     '<span class="sh-hero-eyebrow">' + iconSVG('sparkle', 11) + ' Welcome back, Shiyu</span>' +
     '<h1>Pick up where you <em>left off</em> — your next lesson is one step away.</h1>' +
-    '<p>Your AI co-designer remembers every framework you’ve practiced. Continue refining today’s plan or start something new.</p>' +
+    '<p>Your AI co-designer remembers every framework you\'ve practiced. Continue refining today\'s plan or start something new.</p>' +
     '<div class="sh-hero-cta-row">' +
     '<button class="sh-hero-cta" onclick="shellContinueLearning()">Continue learning<span class="sh-hero-cta-arrow">' + iconSVG('arrowR', 14, 2.5) + '</span></button>' +
     '<button class="sh-hero-cta-ghost" onclick="shellNav(\'modules\')">' + iconSVG('plus', 15) + ' New lesson</button>' +
@@ -491,27 +506,105 @@ function renderShellDashboardContent() {
 
     '<div>' +
     '<div class="sh-section-head" style="margin-bottom:14px">' +
-    '<div><h2>Module <span class="sh-accent">overview</span></h2><div class="sh-sub">Six modules pair learning with usable tools. Start anywhere.</div></div>' +
-    '<button class="sh-see-all" onclick="shellNav(\'modules\')">View all ' + iconSVG('arrowR', 13) + '</button>' +
+    '<div><h2>Toolkit <span class="sh-accent">overview</span></h2><div class="sh-sub">Co-design tools to help you build better lessons.</div></div>' +
+    '<button class="sh-see-all" onclick="shellNav(\'toolkit\')">View all ' + iconSVG('arrowR', 13) + '</button>' +
     '</div>' +
     '<div class="sh-mod-grid">' + cardsHtml + '</div>' +
-    emptyHtml + '</div>'
+    '</div>'
   );
+}
+
+function renderShellConversationContent() {
+  var msgs = state.chatMessages || [];
+  var tools = MODULES.filter(function(m) { return m.kind === 'Co-Design Tool'; });
+
+  var suggestedHtml = tools.map(function(t) {
+    return (
+      '<button class="conv-tool-chip" onclick="shellNav(\'toolkit\')">' +
+      '<span class="conv-tc-icon" style="background:' + t.tint + ';color:' + t.accent + '">' +
+      illustrationSVG(t.illustration, t.accent, t.tint, 20) + '</span>' +
+      '<span class="conv-tc-label">' + escHtml(t.title) + '</span>' +
+      iconSVG('arrowR', 13) + '</button>'
+    );
+  }).join('');
+
+  var inputBar = (
+    '<div class="conv-bar">' +
+    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your AI co-designer anything — plan a lesson, draft a rubric, explain a concept…" ' +
+    'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,220)+\'px\'" ' +
+    'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendChatMessage()}">' +
+    escHtml(state.chatInput || '') + '</textarea>' +
+    '<div class="conv-bar-foot">' +
+    '<span class="conv-hint">Shift + Enter for new line</span>' +
+    '<button class="conv-send-btn" onclick="sendChatMessage()">' + iconSVG('send', 16) + ' Send</button>' +
+    '</div></div>'
+  );
+
+  // ── EMPTY STATE — large centered layout ──
+  if (msgs.length === 0) {
+    return (
+      '<div class="conv-empty-layout">' +
+      '<div class="conv-empty-head">' +
+      '<div class="conv-empty-icon">' + iconSVG('sparkle', 26, 1.5) + '</div>' +
+      '<h1 class="conv-empty-h">Good morning, <em>Shiyu</em></h1>' +
+      '<p class="conv-empty-sub">Ask anything about your lesson, or jump into a tool below.</p>' +
+      '</div>' +
+      inputBar +
+      '<div class="conv-tools-row">' +
+      '<span class="conv-tools-label">' + iconSVG('builder', 13) + ' Suggested tools</span>' +
+      '<div class="conv-tools-chips">' + suggestedHtml + '</div>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // ── ACTIVE STATE — chat history + input ──
+  var msgsHtml = msgs.map(function(m) {
+    var cls = m.role === 'user' ? 'conv-msg-user' : 'conv-msg-ai';
+    var label = m.role === 'user' ? 'You' : 'ESL Co-Pilot';
+    return (
+      '<div class="conv-msg ' + cls + '">' +
+      '<div class="conv-msg-label">' + label + '</div>' +
+      '<div class="conv-msg-bubble">' + escHtml(m.text) + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div class="conv-active-layout">' +
+    '<div class="conv-messages" id="conv-messages">' + msgsHtml + '</div>' +
+    inputBar +
+    '</div>'
+  );
+}
+
+function sendChatMessage() {
+  const ta = document.getElementById('conv-textarea');
+  const text = ta ? ta.value.trim() : (state.chatInput || '').trim();
+  if (!text) return;
+  state.chatMessages = state.chatMessages || [];
+  state.chatMessages.push({ role: 'user', text: text });
+  state.chatInput = '';
+  // Placeholder AI response
+  state.chatMessages.push({ role: 'ai', text: 'Thanks for your message! AI responses will be connected here. In the meantime, try one of the tools in the Toolkit tab.' });
+  render();
+  setTimeout(function() {
+    const el = document.getElementById('conv-messages');
+    if (el) el.scrollTop = el.scrollHeight;
+    const newTa = document.getElementById('conv-textarea');
+    if (newTa) { newTa.style.height = 'auto'; newTa.focus(); }
+  }, 0);
 }
 
 function renderShellModulesContent() {
   const filter = state.dashFilter || 'all';
   const search = (state.dashSearch || '').toLowerCase();
-  let list = MODULES;
-  if (filter === 'learning') list = list.filter(function(m) { return m.kind === 'Learning Module'; });
-  if (filter === 'tools')    list = list.filter(function(m) { return m.kind === 'Co-Design Tool'; });
+  let list = MODULES.filter(function(m) { return m.kind === 'Learning Module'; });
   if (filter === 'progress') list = list.filter(function(m) { return m.status !== 'notstarted'; });
   if (search) list = list.filter(function(m) { return m.title.toLowerCase().includes(search) || m.description.toLowerCase().includes(search); });
 
   const filterDefs = [
-    { id: 'all', label: 'All' },
-    { id: 'learning', label: 'Learning' },
-    { id: 'tools', label: 'Tools' },
+    { id: 'all',      label: 'All' },
     { id: 'progress', label: 'In progress' },
   ];
   const filterHtml = filterDefs.map(function(f) {
@@ -519,16 +612,47 @@ function renderShellModulesContent() {
     return '<button' + cls + ' onclick="state.dashFilter=\'' + f.id + '\';render()">' + f.label + '</button>';
   }).join('');
 
+  const total = MODULES.filter(function(m) { return m.kind === 'Learning Module'; }).length;
   const cardsHtml = list.map(function(m, i) { return renderModuleCard(m, i); }).join('');
   const emptyHtml = list.length === 0 ? '<div class="sh-placeholder"><h2>Nothing matches</h2><p>Try a different filter or clear the search.</p></div>' : '';
 
   return (
     '<div class="sh-section-head">' +
-    '<div><h2>All <span class="sh-accent">modules</span></h2><div class="sh-sub">' + list.length + ' of ' + MODULES.length + ' shown</div></div>' +
+    '<div><h2>Learning <span class="sh-accent">modules</span></h2><div class="sh-sub">' + list.length + ' of ' + total + ' shown</div></div>' +
     '<div class="sh-tab-row">' + filterHtml + '</div>' +
     '</div>' +
     '<div class="sh-mod-grid">' + cardsHtml + '</div>' +
     emptyHtml
+  );
+}
+
+function renderShellToolkitContent() {
+  const search = (state.dashSearch || '').toLowerCase();
+  let list = MODULES.filter(function(m) { return m.kind === 'Co-Design Tool'; });
+  if (search) list = list.filter(function(m) { return m.title.toLowerCase().includes(search) || m.description.toLowerCase().includes(search); });
+
+  const cardsHtml = list.map(function(m, i) { return renderModuleCard(m, i); }).join('');
+  const emptyHtml = list.length === 0 ? '<div class="sh-placeholder"><h2>Nothing matches</h2><p>Try clearing the search.</p></div>' : '';
+
+  return (
+    '<div class="sh-section-head">' +
+    '<div><h2>Co-design <span class="sh-accent">toolkit</span></h2><div class="sh-sub">' + list.length + ' tools</div></div>' +
+    '</div>' +
+    '<div class="sh-mod-grid">' + cardsHtml + '</div>' +
+    emptyHtml
+  );
+}
+
+function renderShellStepContent() {
+  const mod = MODULES.find(function(m) { return m.id === state.moduleId; });
+  const origin = mod && mod.kind === 'Co-Design Tool' ? 'toolkit' : 'modules';
+  const backLabel = mod && mod.kind === 'Co-Design Tool' ? 'Toolkit' : 'Modules';
+  return (
+    '<div style="margin-bottom:8px">' +
+    '<button class="sh-detail-back" onclick="shellNav(\'' + origin + '\')">' +
+    iconSVG('arrowL', 14) + ' Back to ' + escHtml(backLabel) +
+    '</button></div>' +
+    renderStep()
   );
 }
 
@@ -565,7 +689,7 @@ function renderShellDetailContent() {
 
   return (
     '<div class="sh-detail">' +
-    '<button class="sh-detail-back" onclick="shellNav(\'modules\')">' + iconSVG('arrowL', 14) + ' Back</button>' +
+    '<button class="sh-detail-back" onclick="shellNav(\'' + (m.kind === 'Co-Design Tool' ? 'toolkit' : 'modules') + '\')">' + iconSVG('arrowL', 14) + ' Back</button>' +
 
     '<div class="sh-detail-hero">' +
     '<div class="sh-dicon" style="background:' + m.tint + '">' + illustrationSVG(m.illustration, m.accent, m.tint, 108) + '</div>' +
@@ -597,9 +721,9 @@ function renderShellDetailContent() {
 
 function renderShellSimpleContent(nav) {
   const configs = {
-    builder:  { icon: 'builder',  title: 'Lesson Builder',  body: 'Open the Lesson Builder module to launch the AI co-designer for tomorrow’s lesson.' },
+    toolkit:  { icon: 'builder',  title: 'Toolkit',         body: 'Browse the co-design tools to help you build worksheets, rubrics, and lesson plans.' },
     library:  { icon: 'folder',   title: 'My Library',      body: 'Every worksheet and rubric you save lives here. Use the Resource Generator inside any module to add more.' },
-    students: { icon: 'users',    title: 'Students',        body: 'Add a roster to start using the Student Evaluator. We’ll keep it private to your account.' },
+    students: { icon: 'users',    title: 'Students',        body: 'Add a roster to start using the Student Evaluator. We\'ll keep it private to your account.' },
     settings: { icon: 'settings', title: 'Settings',        body: 'Profile, notifications, and AI preferences will live here.' },
   };
   const c = configs[nav] || { icon: 'home', title: 'Dashboard', body: '' };
@@ -774,7 +898,7 @@ function renderPretest(step) {
         <div class="callout info" style="margin-top:1rem">
           <div class="callout-icon">📖</div>
           <div class="callout-body">
-            Next, you'll go through the <strong>5-Part Prompt Framework</strong> before seeing a worked example. Click <strong>Next →</strong> when you are ready.
+            Next, you\'ll go through the <strong>5-Part Prompt Framework</strong> before seeing a worked example. Click <strong>Next →</strong> when you are ready.
           </div>
         </div>`;
     }
@@ -837,7 +961,7 @@ async function submitPretest() {
       revision_feedback: { next_best_revision: 'Could not evaluate. Please check your connection and try again.' }
     };
   }
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 /* ── RUBRIC EVAL RESULT ─────────────────────────────────── */
@@ -1437,7 +1561,7 @@ async function evaluateFadedPart(key, idx) {
     state.fadedFieldEvals[key] = 'Please write a real teaching prompt for this part.';
     state.fadedFieldScores[key] = 0;
     state.fadedFieldDone[key] = true;
-    document.getElementById('app-main').innerHTML = renderStep();
+    refreshStepContent();
     return;
   }
 
@@ -1458,7 +1582,7 @@ async function evaluateFadedPart(key, idx) {
     state.fadedFieldDone[key] = true;
   }
 
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 function nextFadedPart(idx, total) {
@@ -1700,7 +1824,7 @@ async function submitFullPractice() {
     };
     state.fullPracticeGenerated = 'Could not generate. Please check your connection.';
   }
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 /* ── Word diff ──────────────────────────────────────────── */
@@ -2026,7 +2150,7 @@ async function regenReflection() {
   });
   if (isObviouslyTrivial) {
     state.reflectionGibberish = true;
-    document.getElementById('app-main').innerHTML = renderStep();
+    refreshStepContent();
     return;
   }
 
@@ -2099,7 +2223,7 @@ async function regenReflection() {
     outputPanel.innerHTML = renderReflectionOutputPanel();
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Regenerate Output'; }
   } else {
-    document.getElementById('app-main').innerHTML = renderStep();
+    refreshStepContent();
   }
 }
 
@@ -2228,7 +2352,7 @@ async function submitPosttest() {
     state.posttestEvals.push(errResult);
     state.posttestEval = errResult;
   }
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 /* ── Module complete ────────────────────────────────────── */
@@ -2262,18 +2386,27 @@ function renderComplete() {
 /* ── Event listeners ────────────────────────────────────── */
 function attachStepListeners() { }
 
+function refreshStepContent() {
+  const scroll = document.querySelector('#app-main .sh-scroll');
+  if (scroll) {
+    scroll.innerHTML = renderShellStepContent();
+  } else {
+    render();
+  }
+}
+
 /* ── Quiz handlers ──────────────────────────────────────── */
 function selectQuizAnswer(qi, oi) {
   if (state.quizChecked) return;
   state.quizAnswers[qi] = oi;
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 function checkAnswers() {
   Tracker.click('quiz_check_answers');
   state.quizChecked = true;
   API.logEvent('quiz_checked', { answers: state.quizAnswers });
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
 }
 
 /* ── Builder handlers ───────────────────────────────────── */
@@ -2285,7 +2418,7 @@ function updateBuilder(key, value) {
     preview.textContent = text || 'Fill in the fields above to see your prompt take shape…';
     preview.className = `builder-preview ${text ? '' : 'empty'}`;
   }
-  document.getElementById('app-main').innerHTML = renderStep();
+  refreshStepContent();
   const el = document.getElementById(`builder-${key}`);
   if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
@@ -2368,7 +2501,7 @@ async function sendTransferPrompt() {
     responseBody.className = 'response-body';
     responseBody.textContent = result;
     API.logEvent('generate_prompt', { type: 'transfer', prompt, result });
-    document.getElementById('app-main').innerHTML = renderStep();
+    refreshStepContent();
   } catch (err) {
     responseBody.className = 'response-body error';
     responseBody.textContent = `Error: ${err.message}`;
