@@ -493,3 +493,118 @@ Return JSON only."""
         return JsonResponse({'highlights': cleaned})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── POST /api/lesson-generate ────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def lesson_generate(request):
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body   = json.loads(request.body)
+        brief  = body.get('brief', '')
+        survey = body.get('survey', {})
+
+        grade      = survey.get('gradeLevel', '')
+        proficiency = survey.get('proficiency', '')
+        duration   = survey.get('duration', '45 min')
+        skills     = ', '.join(survey.get('skills', [])) or 'general language skills'
+        topic      = survey.get('topic', '') or brief[:120]
+        class_size = survey.get('classSize', '')
+
+        system_prompt = """You are an expert ESL curriculum designer. Given a teacher's brief and class details, generate a complete, practical lesson plan.
+
+Return ONLY valid JSON in exactly this structure (no markdown, no extra keys):
+{
+  "name": "short lesson title (max 60 chars)",
+  "objectives": "2-3 numbered student-centered learning objectives",
+  "warmup": "warm-up activity description with timing",
+  "mainActivity": "step-by-step main instruction with timing, grouping, and scaffolds",
+  "assessment": "formative assessment / exit ticket description",
+  "homework": "optional homework or extension activity"
+}
+
+Guidelines:
+- Be concrete and immediately usable in a classroom.
+- Match the proficiency level language demands.
+- Objectives must use measurable action verbs (identify, write, produce, compare…).
+- Include explicit scaffolding for English language learners.
+- Timing suggestions must add up to the requested duration.
+- Use plain text only — no markdown inside values."""
+
+        user_content = f"""Teacher's project brief: {brief}
+
+Class details:
+- Grade: {grade}
+- Proficiency: {proficiency}
+- Duration: {duration}
+- Skill focus: {skills}
+- Topic / text: {topic}
+- Class size: {class_size}
+
+Generate the lesson plan JSON now."""
+
+        response = client.chat.completions.create(
+            model=settings.GENERATE_MODEL,
+            temperature=0.7,
+            max_tokens=1400,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user',   'content': user_content},
+            ]
+        )
+        result = json.loads(response.choices[0].message.content.strip())
+        return JsonResponse({
+            'name':         str(result.get('name', topic[:60])),
+            'objectives':   str(result.get('objectives', '')),
+            'warmup':       str(result.get('warmup', '')),
+            'mainActivity': str(result.get('mainActivity', '')),
+            'assessment':   str(result.get('assessment', '')),
+            'homework':     str(result.get('homework', '')),
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── POST /api/lesson-chat ────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def lesson_chat(request):
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body    = json.loads(request.body)
+        message = body.get('message', '')
+        context = body.get('lessonContext', {})
+
+        lesson_summary = ''
+        if context:
+            parts = []
+            if context.get('name'):        parts.append(f"Lesson: {context['name']}")
+            if context.get('grade'):       parts.append(f"Grade/level: {context['grade']}")
+            if context.get('objectives'):  parts.append(f"Objectives: {context['objectives'][:300]}")
+            if context.get('mainActivity'):parts.append(f"Main activity: {context['mainActivity'][:300]}")
+            lesson_summary = '\n'.join(parts)
+
+        system_prompt = """You are ESL Co-Pilot, an expert AI assistant helping ESL/EFL teachers design lessons. Be concise, practical, and immediately actionable. Suggest specific activities, sentence frames, scaffolds, or materials when asked. Keep replies under 120 words unless a longer list is clearly needed."""
+
+        messages = [{'role': 'system', 'content': system_prompt}]
+        if lesson_summary:
+            messages.append({'role': 'user', 'content': f'Here is my current lesson plan context:\n{lesson_summary}'})
+            messages.append({'role': 'assistant', 'content': 'Got it — I have your lesson context. How can I help you improve it?'})
+        messages.append({'role': 'user', 'content': message})
+
+        response = client.chat.completions.create(
+            model=settings.GENERATE_MODEL,
+            temperature=0.7,
+            max_tokens=300,
+            messages=messages,
+        )
+        reply = response.choices[0].message.content.strip()
+        return JsonResponse({'reply': reply})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -335,8 +335,9 @@ function shellOpenModule(id) {
     const visited = state.progress[mod.id]?.stepsVisited;
     const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
     navigateStep(mod.id, next);
+  } else if (mod && mod.title === 'Lesson Builder') {
+    shellNav('lesson-builder');
   } else {
-    // No steps yet — show the detail/info page
     shellNav('detail', id);
   }
 }
@@ -376,7 +377,9 @@ function renderShell() {
   else if (nav === 'community')  mainContent = renderShellCommunityContent();
   else if (nav === 'step')    mainContent = renderShellStepContent();
   else if (nav === 'complete') mainContent = renderComplete();
-  else if (nav === 'detail')  mainContent = renderShellDetailContent();
+  else if (nav === 'detail')       mainContent = renderShellDetailContent();
+  else if (nav === 'lesson-builder') mainContent = renderShellLessonBuilderContent();
+  else if (nav === 'library')    mainContent = renderShellLibraryContent();
   else                        mainContent = renderShellSimpleContent(nav);
   const shellCls = state.sidebarCollapsed ? ' sidebar-collapsed' : '';
   return (
@@ -420,7 +423,7 @@ function renderShellSidebar(activeNav) {
     '<aside class="sh-sidebar">' +
     '<div class="sb-brand"><div class="sb-brand-mark">' + iconSVG('sparkle', 18, 2.5) + '</div><div class="sb-brand-name">ESL <span>Co-Pilot</span></div></div>' +
     '<div><div class="sb-section-label">Workspace</div><nav class="sb-nav">' + navItems + '</nav></div>' +
-    '<div class="sb-helper"><h4>Need a hand?</h4><p>Ask the AI co-designer about anything in your current lesson draft.</p><button>Open AI ' + iconSVG('arrowR', 13) + '</button></div>' +
+    '<div class="sb-helper"><h4>Need a hand?</h4><p>Ask the ESL Co-Pilot about anything in your current lesson draft.</p><button>Open AI ' + iconSVG('arrowR', 13) + '</button></div>' +
     '<div class="sb-spacer"></div>' +
     '<div><div class="sb-section-label">Account</div><nav class="sb-nav">' + settingsItems + '</nav>' +
     '<div class="sb-user"><div class="sb-avatar">SY</div><div><div class="sb-uname">@shiyu</div><div class="sb-umeta">Middle-school ESL</div></div></div></div>' +
@@ -517,7 +520,7 @@ function renderShellDashboardContent() {
     '<div class="sh-hero-body">' +
     '<span class="sh-hero-eyebrow">' + iconSVG('sparkle', 11) + ' Welcome back, Shiyu</span>' +
     '<h1>Pick up where you <em>left off</em> — your next lesson is one step away.</h1>' +
-    '<p>Your AI co-designer remembers every framework you\'ve practiced. Continue refining today\'s plan or start something new.</p>' +
+    '<p>Your ESL Co-Pilot remembers every framework you\'ve practiced. Continue refining today\'s plan or start something new.</p>' +
     '<div class="sh-hero-cta-row">' +
     '<button class="sh-hero-cta" onclick="shellContinueLearning()">Continue learning<span class="sh-hero-cta-arrow">' + iconSVG('arrowR', 14, 2.5) + '</span></button>' +
     '<button class="sh-hero-cta-ghost" onclick="shellNav(\'modules\')">' + iconSVG('plus', 15) + ' New lesson</button>' +
@@ -558,7 +561,7 @@ function renderShellConversationContent() {
 
   var inputBar = (
     '<div class="conv-bar">' +
-    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your AI co-designer anything — plan a lesson, draft a rubric, explain a concept…" ' +
+    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your ESL Co-Pilot anything — plan a lesson, draft a rubric, explain a concept…" ' +
     'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,220)+\'px\'" ' +
     'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendChatMessage()}">' +
     escHtml(state.chatInput || '') + '</textarea>' +
@@ -879,7 +882,7 @@ function renderShellSimpleContent(nav) {
 }
 
 function renderModuleCard(m, index) {
-  const lockedCls = m.status === 'notstarted' ? ' sh-locked' : '';
+  const lockedCls = m.status === 'notstarted' && m.kind !== 'Co-Design Tool' ? ' sh-locked' : '';
   const delay = (index || 0) * 60;
   let statusBadge;
   if (m.status === 'complete')     statusBadge = '<div class="sh-mod-status complete">'    + iconSVG('check', 11, 2.5) + ' Complete</div>';
@@ -891,7 +894,8 @@ function renderModuleCard(m, index) {
   else if (m.status === 'progress') pillHtml = '<span class="sh-mod-pill progress">'   + iconSVG('play',  10)      + ' In progress</span>';
   else                              pillHtml = '<span class="sh-mod-pill notstarted">Not started</span>';
 
-  const onclickAttr = m.status !== 'notstarted' ? ' onclick="shellOpenModule(' + m.id + ')"' : '';
+  const isClickable = m.status !== 'notstarted' || m.kind === 'Co-Design Tool';
+  const onclickAttr = isClickable ? ' onclick="shellOpenModule(' + m.id + ')"' : '';
 
   return (
     '<div class="sh-mod-card' + lockedCls + ' sh-fade-up" style="animation-delay:' + delay + 'ms"' + onclickAttr + '>' +
