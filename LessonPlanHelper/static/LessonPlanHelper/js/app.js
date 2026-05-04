@@ -27,6 +27,35 @@ const state = {
   sidebarCollapsed: false,
   chatMessages: [],
   chatInput: '',
+  lessonFiles: [
+    { id: 1, name: 'Past Tense Narrative', grade: '7th Grade ESL', modified: '2d ago',
+      objectives: 'Students will write 3-sentence narratives using simple past tense verbs.',
+      warmup: 'Show a comic strip. Students identify and call out past-tense verbs (5 min).',
+      mainActivity: 'Guided writing: students complete a sentence-frame paragraph\n"Yesterday, I ___ and then I ___."\nPair-share before whole-class share-out.',
+      assessment: 'Exit ticket: write 2 sentences about what they did yesterday.',
+      homework: 'Read Wonder Ch. 1. Underline 5 past-tense verbs and write their base forms.' },
+    { id: 2, name: 'Vocabulary Pre-Teach', grade: '8th Grade ESL', modified: '5d ago',
+      objectives: '', warmup: '', mainActivity: '', assessment: '', homework: '' }
+  ],
+  lessonActiveFile: 1,
+  lessonChat: [
+    { role: 'ai', text: 'Hi Shiyu! I am your ESL Co-Pilot. Click "Ask AI" next to any section and I will help you refine it, or just ask me anything.' }
+  ],
+  lessonChatInput: '',
+  libraryActiveId: null,
+  // Lesson Builder creation flow
+  lbCreating: false,
+  lbCreateStep: 'brief',   // 'brief' | 'survey' | 'generating'
+  lbCreateBrief: '',
+  lbSurvey: {
+    gradeLevel: '',
+    proficiency: '',
+    duration: '',
+    skills: [],
+    topic: '',
+    objectives: '',
+    classSize: ''
+  },
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
@@ -261,7 +290,10 @@ function iconSVG(name, size = 18, stroke = 2) {
     folder:    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     send:      '<path d="m4 4 16 8-16 8 4-8z"/>',
     lock:      '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-    bolt:      '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
+    bolt:          '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
+    'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+    'chevron-left':  '<path d="m15 18-6-6 6-6"/>',
+    globe:         '<circle cx="12" cy="12" r="9"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12a15.3 15.3 0 0 1 4-10z"/>',
   };
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || '') + '</svg>';
 }
@@ -309,8 +341,9 @@ function shellOpenModule(id) {
     const visited = state.progress[mod.id]?.stepsVisited;
     const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
     navigateStep(mod.id, next);
+  } else if (mod && mod.title === 'Lesson Builder') {
+    shellNav('lesson-builder');
   } else {
-    // No steps yet — show the detail/info page
     shellNav('detail', id);
   }
 }
@@ -349,7 +382,9 @@ function renderShell() {
   else if (nav === 'toolkit') mainContent = renderShellToolkitContent();
   else if (nav === 'step')    mainContent = renderShellStepContent();
   else if (nav === 'complete') mainContent = renderComplete();
-  else if (nav === 'detail')  mainContent = renderShellDetailContent();
+  else if (nav === 'detail')       mainContent = renderShellDetailContent();
+  else if (nav === 'lesson-builder') mainContent = renderShellLessonBuilderContent();
+  else if (nav === 'library')    mainContent = renderShellLibraryContent();
   else                        mainContent = renderShellSimpleContent(nav);
   const shellCls = state.sidebarCollapsed ? ' sidebar-collapsed' : '';
   return (
@@ -392,7 +427,7 @@ function renderShellSidebar(activeNav) {
     '<aside class="sh-sidebar">' +
     '<div class="sb-brand"><div class="sb-brand-mark">' + iconSVG('sparkle', 18, 2.5) + '</div><div class="sb-brand-name">ESL <span>Co-Pilot</span></div></div>' +
     '<div><div class="sb-section-label">Workspace</div><nav class="sb-nav">' + navItems + '</nav></div>' +
-    '<div class="sb-helper"><h4>Need a hand?</h4><p>Ask the AI co-designer about anything in your current lesson draft.</p><button>Open AI ' + iconSVG('arrowR', 13) + '</button></div>' +
+    '<div class="sb-helper"><h4>Need a hand?</h4><p>Ask the ESL Co-Pilot about anything in your current lesson draft.</p><button>Open AI ' + iconSVG('arrowR', 13) + '</button></div>' +
     '<div class="sb-spacer"></div>' +
     '<div><div class="sb-section-label">Account</div><nav class="sb-nav">' + settingsItems + '</nav>' +
     '<div class="sb-user"><div class="sb-avatar">SY</div><div><div class="sb-uname">@shiyu</div><div class="sb-umeta">Middle-school ESL</div></div></div></div>' +
@@ -489,7 +524,7 @@ function renderShellDashboardContent() {
     '<div class="sh-hero-body">' +
     '<span class="sh-hero-eyebrow">' + iconSVG('sparkle', 11) + ' Welcome back, Shiyu</span>' +
     '<h1>Pick up where you <em>left off</em> — your next lesson is one step away.</h1>' +
-    '<p>Your AI co-designer remembers every framework you\'ve practiced. Continue refining today\'s plan or start something new.</p>' +
+    '<p>Your ESL Co-Pilot remembers every framework you\'ve practiced. Continue refining today\'s plan or start something new.</p>' +
     '<div class="sh-hero-cta-row">' +
     '<button class="sh-hero-cta" onclick="shellContinueLearning()">Continue learning<span class="sh-hero-cta-arrow">' + iconSVG('arrowR', 14, 2.5) + '</span></button>' +
     '<button class="sh-hero-cta-ghost" onclick="shellNav(\'modules\')">' + iconSVG('plus', 15) + ' New lesson</button>' +
@@ -530,7 +565,7 @@ function renderShellConversationContent() {
 
   var inputBar = (
     '<div class="conv-bar">' +
-    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your AI co-designer anything — plan a lesson, draft a rubric, explain a concept…" ' +
+    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your ESL Co-Pilot anything — plan a lesson, draft a rubric, explain a concept…" ' +
     'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,220)+\'px\'" ' +
     'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendChatMessage()}">' +
     escHtml(state.chatInput || '') + '</textarea>' +
@@ -719,6 +754,561 @@ function renderShellDetailContent() {
   );
 }
 
+/* ── Lesson Builder ─────────────────────────────────────── */
+function renderShellLessonBuilderContent() {
+  // 3-panel layout is always present; only the middle panel changes
+  return (
+    '<div class="lb-workspace">' +
+    renderLBLibraryPanel() +
+    renderLBMiddlePanel() +
+    renderLBChatPanel() +
+    '</div>'
+  );
+}
+
+function renderLBLibraryPanel() {
+  var files = state.lessonFiles || [];
+  var active = state.lessonActiveFile;
+  var filesHtml = files.length ? files.map(function(f) {
+    var cls = f.id === active ? ' lb-file-active' : '';
+    return (
+      '<div class="lb-file-item' + cls + '" onclick="lbSelectFile(' + f.id + ')">' +
+      '<div class="lb-file-icon">' + iconSVG('file', 14) + '</div>' +
+      '<div class="lb-file-info">' +
+      '<div class="lb-file-name">' + escHtml(f.name) + '</div>' +
+      '<div class="lb-file-meta">' + escHtml(f.grade || 'No grade') + ' · ' + escHtml(f.modified) + '</div>' +
+      '</div></div>'
+    );
+  }).join('') : '<div class="lb-library-empty">No materials yet</div>';
+
+  return (
+    '<div class="lb-files">' +
+    '<div class="lb-files-head">' +
+    '<span class="lb-files-label">LIBRARY</span>' +
+    '<button class="lb-new-btn" onclick="lbNewFile()" title="New material">' + iconSVG('plus', 14) + '</button>' +
+    '</div>' +
+    '<div class="lb-file-list">' + filesHtml + '</div>' +
+    '<button class="lb-library-link" onclick="shellNav(\'library\')">' +
+    iconSVG('folder', 13) + ' View full library</button>' +
+    '</div>'
+  );
+}
+
+function renderLBMiddlePanel() {
+  if (state.lbCreating) {
+    if (state.lbCreateStep === 'brief')      return renderLBBriefPanel();
+    if (state.lbCreateStep === 'survey')     return renderLBSurveyPanel();
+    if (state.lbCreateStep === 'generating') return renderLBGeneratingPanel();
+  }
+  var f = (state.lessonFiles || []).find(function(x) { return x.id === state.lessonActiveFile; });
+  if (!f) return renderLBEmptyState();
+  return renderLBEditor();
+}
+
+function renderLBEmptyState() {
+  return (
+    '<div class="lb-editor lb-empty-state">' +
+    '<div class="lb-empty-inner">' +
+    '<div class="lb-empty-icon">' + iconSVG('sparkle', 36, 1.5) + '</div>' +
+    '<h3 class="lb-empty-title">Start something new</h3>' +
+    '<p class="lb-empty-sub">Pick a material from your library, or click + to create one with AI.</p>' +
+    '<button class="lb-empty-btn" onclick="lbNewFile()">' + iconSVG('plus', 15) + ' New material</button>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderLBBriefPanel() {
+  var chips = [
+    'A reading comprehension unit on climate change for 8th graders',
+    'Vocabulary building lesson using academic word lists',
+    'Speaking activity around job interviews',
+    'Grammar mini-lesson: present perfect vs simple past'
+  ];
+  var chipsHtml = chips.map(function(c) {
+    return '<button class="lb-brief-chip" onclick="lbSetBrief(' + JSON.stringify(c) + ')">' + escHtml(c) + '</button>';
+  }).join('');
+  return (
+    '<div class="lb-editor lb-panel-flow">' +
+    '<div class="lb-panel-flow-inner">' +
+    '<div class="lb-panel-logo">' + iconSVG('sparkle', 28, 1.5) + '</div>' +
+    '<h3 class="lb-panel-title">What are you working on?</h3>' +
+    '<p class="lb-panel-sub">Describe your lesson and I\'ll ask a few questions before building the plan.</p>' +
+    '<textarea id="lb-brief-ta" class="lb-brief-ta" rows="4" placeholder="e.g. A two-day reading unit on folk tales for 6th-grade ESL students..." ' +
+    'oninput="state.lbCreateBrief=this.value">' + escHtml(state.lbCreateBrief) + '</textarea>' +
+    '<div class="lb-brief-chips">' + chipsHtml + '</div>' +
+    '<div class="lb-panel-actions">' +
+    '<button class="lb-creation-cancel" onclick="lbCancelCreate()">Cancel</button>' +
+    '<button class="lb-creation-next" onclick="lbSubmitBrief()">Continue ' + iconSVG('chevron-right', 14) + '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderLBSurveyPanel() {
+  var s = state.lbSurvey;
+
+  function pills(field, opts) {
+    return opts.map(function(o) {
+      var active = (field === 'skills') ? (s.skills.indexOf(o) !== -1) : (s[field] === o);
+      var cls = active ? ' lb-pill-active' : '';
+      var click = (field === 'skills')
+        ? 'lbToggleSkill(' + JSON.stringify(o) + ')'
+        : 'lbSetSurvey(' + JSON.stringify(field) + ',' + JSON.stringify(o) + ')';
+      return '<button class="lb-pill' + cls + '" onclick="' + click + '">' + escHtml(o) + '</button>';
+    }).join('');
+  }
+
+  function row(label, hint, field, opts) {
+    return (
+      '<div class="lb-survey-row">' +
+      '<div class="lb-survey-q"><span class="lb-survey-label">' + label + '</span>' +
+      (hint ? '<span class="lb-survey-hint">' + hint + '</span>' : '') +
+      '</div>' +
+      '<div class="lb-survey-pills">' + pills(field, opts) + '</div>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div class="lb-editor lb-panel-flow">' +
+    '<div class="lb-panel-flow-inner">' +
+    '<div class="lb-panel-brief-badge">' + escHtml(state.lbCreateBrief.substring(0, 100)) + (state.lbCreateBrief.length > 100 ? '...' : '') + '</div>' +
+    '<h3 class="lb-panel-title" style="margin-bottom:20px">Tell me about your class</h3>' +
+    row('Grade Level', null, 'gradeLevel', ['K-2','3-5','6-8','9-10','11-12','Adult']) +
+    row('Proficiency', null, 'proficiency', ['Newcomer','Beginning','Intermediate','Advanced']) +
+    row('Duration', null, 'duration', ['30 min','45 min','60 min','90 min','Multi-day']) +
+    row('Skill Focus', '(pick all that apply)', 'skills', ['Reading','Writing','Speaking','Listening','Grammar','Vocabulary']) +
+    '<div class="lb-survey-row">' +
+    '<div class="lb-survey-q"><span class="lb-survey-label">Topic / Text</span></div>' +
+    '<input class="lb-survey-input" type="text" placeholder="e.g. The Giver, climate change, job applications..." ' +
+    'value="' + escHtml(s.topic) + '" oninput="state.lbSurvey.topic=this.value" />' +
+    '</div>' +
+    '<div class="lb-survey-row">' +
+    '<div class="lb-survey-q"><span class="lb-survey-label">Class Size</span></div>' +
+    '<div class="lb-survey-pills">' + pills('classSize', ['1-5','6-15','16-25','26+']) + '</div>' +
+    '</div>' +
+    '<div class="lb-panel-actions">' +
+    '<button class="lb-creation-cancel" onclick="lbCancelCreate()">Cancel</button>' +
+    '<button class="lb-creation-back" onclick="lbBackToBrief()">' + iconSVG('chevron-left', 14) + ' Back</button>' +
+    '<button class="lb-creation-next" onclick="lbSubmitSurvey()">' + iconSVG('sparkle', 14, 2) + ' Generate</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderLBGeneratingPanel() {
+  var steps = [
+    'Reading your brief...',
+    'Mapping learning objectives...',
+    'Designing warm-up activity...',
+    'Drafting main activity...',
+    'Writing formative assessment...',
+    'Polishing and reviewing...'
+  ];
+  var stepsHtml = steps.map(function(s, i) {
+    return '<div class="lb-gen-step" style="animation-delay:' + (i * 0.4) + 's">' +
+      iconSVG('check', 14) + ' ' + escHtml(s) + '</div>';
+  }).join('');
+  return (
+    '<div class="lb-editor lb-panel-flow">' +
+    '<div class="lb-panel-flow-inner lb-panel-center">' +
+    '<div class="lb-gen-spinner">' +
+    '<div class="lb-gen-ring"></div>' +
+    iconSVG('sparkle', 28, 2) +
+    '</div>' +
+    '<h3 class="lb-panel-title" style="margin-top:20px">Building your lesson plan...</h3>' +
+    '<p class="lb-panel-sub">This takes just a moment</p>' +
+    '<div class="lb-gen-steps">' + stepsHtml + '</div>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderLBEditor() {
+  var files = state.lessonFiles || [];
+  var f = files.find(function(x) { return x.id === state.lessonActiveFile; });
+  if (!f) return '<div class="lb-editor"><div class="lb-editor-empty">No lesson selected.</div></div>';
+
+  function section(field, label, placeholder, rows) {
+    var val = escHtml(f[field] || '');
+    return (
+      '<div class="lb-section">' +
+      '<div class="lb-section-head">' +
+      '<span class="lb-section-label">' + label + '</span>' +
+      '<button class="lb-ask-btn" onclick="lbAskAbout(\'' + field + '\',\'' + label + '\')">' +
+      iconSVG('sparkle', 12, 2) + ' Ask AI</button>' +
+      '</div>' +
+      '<textarea class="lb-section-body" rows="' + rows + '" placeholder="' + placeholder + '" ' +
+      'oninput="lbUpdateField(' + f.id + ',\'' + field + '\',this.value)">' + val + '</textarea>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div class="lb-editor">' +
+    '<div class="lb-editor-inner">' +
+    '<div class="lb-doc-header">' +
+    '<input class="lb-doc-title" value="' + escHtml(f.name) + '" placeholder="Lesson title…" ' +
+    'oninput="lbUpdateField(' + f.id + ',\'name\',this.value)" />' +
+    '<input class="lb-doc-grade" value="' + escHtml(f.grade) + '" placeholder="Grade & level…" ' +
+    'oninput="lbUpdateField(' + f.id + ',\'grade\',this.value)" />' +
+    '</div>' +
+    section('objectives',    'Learning Objectives',   'What will students know or do by the end?', 3) +
+    section('warmup',        'Warm-Up',               'How will you activate prior knowledge?',    3) +
+    section('mainActivity',  'Main Activity',         'Describe the core task or instruction…',    5) +
+    section('assessment',    'Formative Assessment',  'How will you check for understanding?',     3) +
+    section('homework',      'Homework / Extension',  'Optional follow-up…',                       2) +
+    '</div></div>'
+  );
+}
+
+function renderLBChatPanel() {
+  var msgs = state.lessonChat || [];
+  var msgsHtml = msgs.map(function(m) {
+    var cls = m.role === 'user' ? 'lb-msg-user' : 'lb-msg-ai';
+    return (
+      '<div class="lb-msg ' + cls + '">' +
+      '<div class="lb-msg-bubble">' + escHtml(m.text) + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div class="lb-chat">' +
+    '<div class="lb-chat-head">' + iconSVG('sparkle', 14, 2) + ' ESL Co-Pilot</div>' +
+    '<div class="lb-chat-msgs" id="lb-chat-msgs">' + msgsHtml + '</div>' +
+    '<div class="lb-chat-input-wrap">' +
+    '<textarea id="lb-chat-ta" class="lb-chat-ta" rows="2" placeholder="Ask about your lesson…" ' +
+    'oninput="state.lessonChatInput=this.value" ' +
+    'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();lbSendChat()}">' +
+    escHtml(state.lessonChatInput || '') + '</textarea>' +
+    '<button class="lb-chat-send" onclick="lbSendChat()">' + iconSVG('send', 15) + '</button>' +
+    '</div></div>'
+  );
+}
+
+function lbSelectFile(id) {
+  state.lessonActiveFile = id;
+  render();
+}
+
+function lbNewFile() {
+  state.lbCreating = true;
+  state.lbCreateStep = 'brief';
+  state.lbCreateBrief = '';
+  state.lbSurvey = { gradeLevel: '', proficiency: '', duration: '', skills: [], topic: '', objectives: '', classSize: '' };
+  render();
+}
+
+/* ── Lesson Builder creation flow renders ───────────────────────── */
+
+function lbUpdateField(fileId, field, value) {
+  var f = state.lessonFiles.find(function(x) { return x.id === fileId; });
+  if (f) { f[field] = value; f.modified = 'Just now'; }
+}
+
+function lbAskAbout(field, label) {
+  var f = state.lessonFiles.find(function(x) { return x.id === state.lessonActiveFile; });
+  var current = f ? (f[field] || '').trim() : '';
+  var prompt = current
+    ? 'Help me improve this "' + label + '" section: ' + current
+    : 'Suggest a "' + label + '" section for a ' + (f ? f.grade : 'ESL') + ' lesson.';
+  state.lessonChatInput = prompt;
+  render();
+  setTimeout(function() {
+    var ta = document.getElementById('lb-chat-ta');
+    if (ta) { ta.focus(); ta.select(); }
+    var msgs = document.getElementById('lb-chat-msgs');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }, 0);
+}
+
+function lbSendChat() {
+  var ta = document.getElementById('lb-chat-ta');
+  var text = ta ? ta.value.trim() : (state.lessonChatInput || '').trim();
+  if (!text) return;
+  state.lessonChat.push({ role: 'user', text: text });
+  state.lessonChatInput = '';
+  state.lessonChat.push({ role: 'ai', text: '...' });
+  render();
+  setTimeout(function() {
+    var msgs = document.getElementById('lb-chat-msgs');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }, 0);
+
+  var activeFile = state.lessonFiles.find(function(f) { return f.id === state.lessonActiveFile; });
+  fetch('/api/lesson-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: text,
+      lessonContext: activeFile ? {
+        name: activeFile.name, grade: activeFile.grade,
+        objectives: activeFile.objectives, mainActivity: activeFile.mainActivity
+      } : {}
+    })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    var msgs = state.lessonChat;
+    if (msgs.length && msgs[msgs.length - 1].text === '...') {
+      msgs[msgs.length - 1].text = data.reply || '(no response)';
+    }
+    render();
+    setTimeout(function() {
+      var el = document.getElementById('lb-chat-msgs');
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 0);
+  })
+  .catch(function(err) {
+    var msgs = state.lessonChat;
+    if (msgs.length && msgs[msgs.length - 1].text === '...') {
+      msgs[msgs.length - 1].text = 'Error: ' + err.message;
+    }
+    render();
+  });
+}
+
+function lbSetBrief(text) {
+  state.lbCreateBrief = text;
+  render();
+  setTimeout(function() {
+    var ta = document.getElementById('lb-brief-ta');
+    if (ta) { ta.value = text; ta.focus(); }
+  }, 0);
+}
+
+function lbCancelCreate() {
+  state.lbCreating = false;
+  state.lbCreateStep = 'brief';
+  render();
+}
+
+function lbBackToBrief() {
+  state.lbCreateStep = 'brief';
+  render();
+}
+
+function lbSubmitBrief() {
+  var brief = state.lbCreateBrief.trim();
+  if (!brief) {
+    var ta = document.getElementById('lb-brief-ta');
+    if (ta) { ta.focus(); ta.style.borderColor = 'var(--red-400, #f87171)'; }
+    return;
+  }
+  state.lbCreateStep = 'survey';
+  render();
+}
+
+function lbSetSurvey(field, value) {
+  state.lbSurvey[field] = value;
+  render();
+}
+
+function lbToggleSkill(skill) {
+  var idx = state.lbSurvey.skills.indexOf(skill);
+  if (idx === -1) state.lbSurvey.skills.push(skill);
+  else state.lbSurvey.skills.splice(idx, 1);
+  render();
+}
+
+function lbSubmitSurvey() {
+  var s = state.lbSurvey;
+  state.lbCreateStep = 'generating';
+  render();
+
+  API.generate && fetch('/api/lesson-generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ brief: state.lbCreateBrief, survey: s })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error);
+    var newId = Date.now();
+    state.lessonFiles.push({
+      id: newId,
+      name: data.name || state.lbCreateBrief.substring(0, 50),
+      grade: (s.gradeLevel || 'ESL') + ' - ' + (s.proficiency || 'Intermediate'),
+      modified: 'Just now',
+      objectives:   data.objectives   || '',
+      warmup:       data.warmup       || '',
+      mainActivity: data.mainActivity || '',
+      assessment:   data.assessment   || '',
+      homework:     data.homework     || ''
+    });
+    state.lessonActiveFile = newId;
+    state.lbCreating = false;
+    state.lbCreateStep = 'brief';
+    state.lessonChat.push({
+      role: 'ai',
+      text: 'Your lesson plan for "' + data.name + '" is ready! Review each section and click Ask AI to refine any part.'
+    });
+    render();
+    setTimeout(function() {
+      var msgs = document.getElementById('lb-chat-msgs');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    }, 100);
+  })
+  .catch(function(err) {
+    state.lbCreateStep = 'survey';
+    state.lessonChat.push({ role: 'ai', text: 'Sorry, I could not generate the lesson plan: ' + err.message });
+    render();
+  });
+}
+
+
+function renderShellLibraryContent() {
+  var files = state.lessonFiles || [];
+  var activeId = state.libraryActiveId;
+  // Auto-select first if none chosen
+  if (!activeId && files.length) activeId = files[0].id;
+
+  var listHtml = files.length ? files.map(function(f) {
+    var cls = f.id === activeId ? ' lib-item-active' : '';
+    return (
+      '<div class="lib-item' + cls + '" onclick="libSelect(' + f.id + ')">' +
+      '<div class="lib-item-icon">' + iconSVG('file', 16) + '</div>' +
+      '<div class="lib-item-body">' +
+      '<div class="lib-item-name">' + escHtml(f.name) + '</div>' +
+      '<div class="lib-item-meta">' + escHtml(f.grade || 'No grade') + ' \xb7 ' + escHtml(f.modified) + '</div>' +
+      '</div>' +
+      '</div>'
+    );
+  }).join('') : '<div class="lib-sidebar-empty">' + iconSVG('file', 20) + '<span>No saved materials</span></div>';
+
+  var active = files.find(function(f) { return f.id === activeId; });
+  var detailHtml = active ? renderLibDetail(active) : (
+    '<div class="lib-detail-empty">' +
+    '<div>' + iconSVG('folder', 40) + '</div>' +
+    '<h3>Nothing selected</h3>' +
+    '<p>Choose a material from the list to preview it.</p>' +
+    '</div>'
+  );
+
+  if (!files.length) {
+    return (
+      '<div class="lib-empty-full">' +
+      '<div>' + iconSVG('folder', 40) + '</div>' +
+      '<h3>Your library is empty</h3>' +
+      '<p>Materials you create in the Lesson Builder are saved here.</p>' +
+      '<button class="lb-empty-btn" onclick="shellNav(\'lesson-builder\')">' + iconSVG('sparkle', 14, 2) + ' Open Lesson Builder</button>' +
+      '</div>'
+    );
+  }
+
+  return (
+    '<div class="lib-shell">' +
+    '<div class="lib-sidebar">' +
+    '<div class="lib-sidebar-head">' +
+    '<span class="lib-sidebar-label">SAVED FILES</span>' +
+    '</div>' +
+    '<div class="lib-sidebar-list">' + listHtml + '</div>' +
+    '</div>' +
+    '<div class="lib-detail">' + detailHtml + '</div>' +
+    '</div>'
+  );
+}
+
+function renderLibDetail(f) {
+  function block(label, value) {
+    if (!value || !value.trim()) return '';
+    return (
+      '<div class="lib-detail-block">' +
+      '<div class="lib-detail-label">' + escHtml(label) + '</div>' +
+      '<div class="lib-detail-value">' + escHtml(value).replace(/\n/g, '<br>') + '</div>' +
+      '</div>'
+    );
+  }
+  return (
+    '<div class="lib-detail-inner">' +
+    '<div class="lib-detail-header">' +
+    '<div>' +
+    '<h2 class="lib-detail-title">' + escHtml(f.name) + '</h2>' +
+    '<div class="lib-detail-meta">' + escHtml(f.grade || 'No grade') + ' \xb7 edited ' + escHtml(f.modified) + '</div>' +
+    '</div>' +
+    '<div class="lib-detail-actions">' +
+    '<button class="lib-export-btn" onclick="libExportJSON(' + f.id + ')">' + iconSVG('sheet', 14) + ' JSON</button>' +
+    '<button class="lib-export-btn" onclick="libExportWord(' + f.id + ')">' + iconSVG('file', 14) + ' Word</button>' +
+    '<button class="lib-export-btn lib-export-primary" onclick="libExportPDF(' + f.id + ')">' + iconSVG('sheet', 14) + ' PDF</button>' +
+    '</div>' +
+    '</div>' +
+    block('Learning Objectives', f.objectives) +
+    block('Warm-Up', f.warmup) +
+    block('Main Activity', f.mainActivity) +
+    block('Formative Assessment', f.assessment) +
+    block('Homework / Extension', f.homework) +
+    '</div>'
+  );
+}
+
+function libSelect(id) {
+  state.libraryActiveId = id;
+  var scroll = document.querySelector('#app-main .sh-scroll');
+  if (scroll) scroll.innerHTML = renderShellLibraryContent();
+}
+
+function libExportJSON(id) {
+  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
+  if (!f) return;
+  var json = JSON.stringify({ name: f.name, grade: f.grade, objectives: f.objectives, warmup: f.warmup, mainActivity: f.mainActivity, assessment: f.assessment, homework: f.homework }, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (f.name || 'lesson').replace(/[^a-z0-9]/gi, '_') + '.json';
+  a.click();
+}
+
+function libExportWord(id) {
+  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
+  if (!f) return;
+  function row(label, value) {
+    if (!value || !value.trim()) return '';
+    return '<h2 style="font-size:13pt;font-family:Calibri;margin-top:18pt;margin-bottom:4pt;color:#2F3742">' + label + '</h2>' +
+      '<p style="font-size:11pt;font-family:Calibri;margin:0;white-space:pre-wrap;line-height:1.6">' + value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>';
+  }
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + f.name + '</title></head><body style="margin:40pt 60pt;font-family:Calibri">' +
+    '<h1 style="font-size:18pt;margin-bottom:4pt">' + f.name.replace(/&/g,'&amp;') + '</h1>' +
+    '<p style="color:#666;font-size:10pt;margin-top:0">' + (f.grade || '') + '</p>' +
+    row('Learning Objectives', f.objectives) +
+    row('Warm-Up', f.warmup) +
+    row('Main Activity', f.mainActivity) +
+    row('Formative Assessment', f.assessment) +
+    row('Homework / Extension', f.homework) +
+    '</body></html>';
+  var blob = new Blob(['﻿' + html], { type: 'application/msword' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (f.name || 'lesson').replace(/[^a-z0-9]/gi, '_') + '.doc';
+  a.click();
+}
+
+function libExportPDF(id) {
+  var f = (state.lessonFiles || []).find(function(x) { return x.id === id; });
+  if (!f) return;
+  function row(label, value) {
+    if (!value || !value.trim()) return '';
+    return '<div style="margin-bottom:18px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:6px">' + label + '</div>' +
+      '<div style="font-size:12px;line-height:1.7;white-space:pre-wrap;color:#1e293b">' + value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>';
+  }
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + f.name + '</title>' +
+    '<style>body{margin:40px 56px;font-family:"Segoe UI",Arial,sans-serif}h1{font-size:22px;margin-bottom:2px;color:#0f172a}@media print{body{margin:0}}</style>' +
+    '</head><body>' +
+    '<h1>' + f.name.replace(/&/g,'&amp;') + '</h1>' +
+    '<p style="color:#94a3b8;font-size:11px;margin-top:0;margin-bottom:28px">' + (f.grade || '') + '</p>' +
+    row('Learning Objectives', f.objectives) +
+    row('Warm-Up', f.warmup) +
+    row('Main Activity', f.mainActivity) +
+    row('Formative Assessment', f.assessment) +
+    row('Homework / Extension', f.homework) +
+    '<script>window.onload=function(){window.print()}<\/script></body></html>';
+  var w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 function renderShellSimpleContent(nav) {
   const configs = {
     toolkit:  { icon: 'builder',  title: 'Toolkit',         body: 'Browse the co-design tools to help you build worksheets, rubrics, and lesson plans.' },
@@ -737,7 +1327,7 @@ function renderShellSimpleContent(nav) {
 }
 
 function renderModuleCard(m, index) {
-  const lockedCls = m.status === 'notstarted' ? ' sh-locked' : '';
+  const lockedCls = m.status === 'notstarted' && m.kind !== 'Co-Design Tool' ? ' sh-locked' : '';
   const delay = (index || 0) * 60;
   let statusBadge;
   if (m.status === 'complete')     statusBadge = '<div class="sh-mod-status complete">'    + iconSVG('check', 11, 2.5) + ' Complete</div>';
@@ -749,7 +1339,8 @@ function renderModuleCard(m, index) {
   else if (m.status === 'progress') pillHtml = '<span class="sh-mod-pill progress">'   + iconSVG('play',  10)      + ' In progress</span>';
   else                              pillHtml = '<span class="sh-mod-pill notstarted">Not started</span>';
 
-  const onclickAttr = m.status !== 'notstarted' ? ' onclick="shellOpenModule(' + m.id + ')"' : '';
+  const isClickable = m.status !== 'notstarted' || m.kind === 'Co-Design Tool';
+  const onclickAttr = isClickable ? ' onclick="shellOpenModule(' + m.id + ')"' : '';
 
   return (
     '<div class="sh-mod-card' + lockedCls + ' sh-fade-up" style="animation-delay:' + delay + 'ms"' + onclickAttr + '>' +
