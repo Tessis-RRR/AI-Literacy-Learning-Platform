@@ -3218,6 +3218,92 @@ body.dashboard-active {
 .conv-msg-user .conv-msg-bubble { background: var(--indigo-600); color: white; border-bottom-right-radius: 6px; }
 .conv-msg-ai   .conv-msg-bubble { background: var(--paper); border: 1px solid var(--ink-100); border-bottom-left-radius: 6px; box-shadow: var(--shadow-card); }
 
+/* ── Community feed ──────────────────────────────────────── */
+.cm-layout { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+
+/* Avatar */
+.cm-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: var(--indigo-600); color: white;
+  font-size: 12px; font-weight: 700; display: grid; place-items: center;
+  letter-spacing: 0.03em;
+}
+.cm-avatar.cm-sm   { width: 30px; height: 30px; font-size: 10px; }
+.cm-avatar.cm-me   { background: linear-gradient(135deg, var(--indigo-500), var(--indigo-700)); }
+
+/* Compose box */
+.cm-compose {
+  background: var(--paper); border: 1.5px solid var(--ink-200); border-radius: var(--r-lg);
+  padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: var(--shadow-card);
+}
+.cm-compose-row { display: flex; gap: 12px; align-items: flex-start; }
+.cm-compose-input {
+  flex: 1; border: none; outline: none; resize: none; background: transparent;
+  font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink-900);
+  min-height: 52px;
+}
+.cm-compose-input::placeholder { color: var(--ink-400); }
+.cm-compose-foot { display: flex; justify-content: flex-end; }
+.cm-post-btn {
+  padding: 8px 22px; border-radius: 10px;
+  background: var(--indigo-600); color: white;
+  font-size: 13.5px; font-weight: 600; font-family: inherit;
+  border: none; cursor: pointer; transition: background 0.15s, transform 0.1s;
+}
+.cm-post-btn:hover  { background: var(--indigo-700); }
+.cm-post-btn:active { transform: scale(0.97); }
+
+/* Feed */
+.cm-feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; align-items: start; }
+.cm-post {
+  background: var(--paper); border: 1px solid var(--ink-100); border-radius: var(--r-lg);
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
+  transition: box-shadow 0.15s;
+}
+.cm-post:hover { box-shadow: var(--shadow-card); }
+
+/* Post header */
+.cm-post-head { display: flex; align-items: center; gap: 10px; }
+.cm-post-meta { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.cm-author { font-size: 14px; font-weight: 700; color: var(--ink-900); }
+.cm-role   { font-size: 12px; color: var(--ink-500); }
+.cm-time   { font-size: 12px; color: var(--ink-400); flex-shrink: 0; }
+
+/* Post body */
+.cm-post-text { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--ink-800); }
+
+/* Actions */
+.cm-post-actions { display: flex; gap: 8px; }
+.cm-action-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--ink-500); background: transparent; border: 1px solid var(--ink-100);
+  font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.cm-action-btn:hover { background: var(--indigo-50); color: var(--indigo-600); border-color: var(--indigo-200); }
+.cm-action-btn.cm-liked { color: #D26A82; border-color: #F7DDE3; background: #FDF0F3; }
+.cm-action-btn.cm-liked svg { fill: #D26A82; stroke: #D26A82; }
+
+/* Comments */
+.cm-comments { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border-top: 1px solid var(--ink-100); }
+.cm-comment { display: flex; gap: 10px; align-items: flex-start; }
+.cm-comment-body { flex: 1; min-width: 0; }
+.cm-comment-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.cm-comment-author { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+.cm-comment-text { font-size: 13.5px; line-height: 1.55; color: var(--ink-800); }
+
+/* Reply input */
+.cm-reply-row { display: flex; gap: 10px; align-items: center; margin-top: 2px; }
+.cm-reply-input {
+  flex: 1; height: 36px; padding: 0 14px; border-radius: 18px;
+  border: 1.5px solid var(--ink-200); background: var(--canvas);
+  font-family: inherit; font-size: 13.5px; color: var(--ink-900); outline: none;
+  transition: border-color 0.15s;
+}
+.cm-reply-input:focus { border-color: var(--indigo-400); }
+.cm-reply-input::placeholder { color: var(--ink-400); }
+
 /* Placeholder */
 .sh-placeholder {
   background: var(--paper); border: 1px dashed var(--ink-200); border-radius: var(--r-lg);
@@ -3236,14 +3322,48 @@ body.dashboard-active {
   :root { --sh-rail-w: 280px; --sh-sidebar-w: 220px; }
   .sh-hero h1 { font-size: 30px; }
   .sh-scroll { padding: 4px 24px 48px; }
+  .dash-prompt-h { font-size: 28px; }
+  .conv-empty-h  { font-size: 28px; }
+  .dash-tools-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 1100px) {
   .app-shell { grid-template-columns: var(--sh-sidebar-w) 1fr; }
   .sh-rail { display: none; }
   .sh-stats { grid-template-columns: repeat(2,1fr); }
+  .dash-tools-grid { grid-template-columns: repeat(2, 1fr); }
+
 }
 @media (max-width: 820px) {
   .app-shell { grid-template-columns: 1fr; }
   .sh-sidebar { display: none; }
   .sh-scroll { padding: 4px 16px 48px; }
+  /* Community */
+  .cm-layout { gap: 14px; }
+  .cm-feed { grid-template-columns: 1fr; }
+  .cm-post { padding: 14px 14px; }
+  .cm-compose { padding: 12px 14px 10px; }
+  .cm-post-actions { flex-wrap: wrap; gap: 6px; }
+  .cm-action-btn { font-size: 12px; padding: 5px 10px; }
+  /* Dashboard */
+  .dash-chat-section { padding: 28px 0 4px; }
+  .dash-prompt-h { font-size: 22px; }
+  .dash-tools-grid { grid-template-columns: 1fr; }
+  .dash-lr { grid-template-columns: 36px 1fr auto; }
+  .dash-lr-pbar, .dash-lr-pbar-empty { display: none; }
+  /* Conversation */
+  .conv-empty-layout { padding: 32px 0 20px; }
+  .conv-empty-h { font-size: 22px; }
+  .conv-bar-input { padding: 16px 18px 10px; min-height: 80px; }
+}
+@media (max-width: 560px) {
+  .sh-scroll { padding: 4px 10px 40px; }
+  /* Community */
+  .cm-compose-row { gap: 8px; }
+  .cm-avatar { width: 32px; height: 32px; font-size: 10px; }
+  .cm-avatar.cm-sm { width: 26px; height: 26px; font-size: 9px; }
+  .cm-post-text { font-size: 13.5px; }
+  .cm-comment-text { font-size: 12.5px; }
+  /* Dashboard */
+  .dash-lr-meta { font-size: 11px; }
+  .dash-lr-title { font-size: 13px; }
 }

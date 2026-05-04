@@ -27,6 +27,29 @@ const state = {
   sidebarCollapsed: false,
   chatMessages: [],
   chatInput: '',
+  communityNewPost: '',
+  communityPosts: [
+    { id: 1, author: 'Sarah K.', avatar: 'SK', role: 'High School ESL · Chicago', time: '2h ago',
+      text: 'Just tried the active learning framework with my 9th graders — the scaffold activity worked amazingly well! Anyone else used it with true beginners?',
+      likes: 12, liked: false, showComments: false, commentInput: '',
+      comments: [
+        { id: 1, author: 'Marco T.', avatar: 'MT', time: '1h ago', text: 'Yes! I pair it with the vocabulary pre-teach and the engagement is incredible.' },
+        { id: 2, author: 'Yuki L.',  avatar: 'YL', time: '45m ago', text: 'Which scaffold did you use? The sentence-frame one or the graphic organiser?' }
+      ]
+    },
+    { id: 2, author: 'David R.', avatar: 'DR', role: 'Middle School ESL · Austin', time: '5h ago',
+      text: 'Sharing a rubric I built with the Resource Generator — 5-dimension speaking rubric aligned to ACTFL. Free to copy!',
+      likes: 31, liked: false, showComments: false, commentInput: '',
+      comments: [
+        { id: 1, author: 'Priya N.', avatar: 'PN', time: '4h ago', text: 'This is exactly what I needed for my pronunciation unit. Thank you!' }
+      ]
+    },
+    { id: 3, author: 'Lin F.', avatar: 'LF', role: 'Adult ESL · New York', time: 'Yesterday',
+      text: 'Question for the group: how do you handle mixed-proficiency classes when doing pair work? I have A1 and B1 learners in the same room.',
+      likes: 8, liked: false, showComments: false, commentInput: '',
+      comments: []
+    }
+  ],
   // Faded example
   fadedValues: {},         // { goal, context, task, constraints, output } — completion text only
   fadedGenerated: '',
@@ -262,6 +285,9 @@ function iconSVG(name, size = 18, stroke = 2) {
     send:      '<path d="m4 4 16 8-16 8 4-8z"/>',
     lock:      '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     bolt:      '<path d="M13 3 4 14h6l-1 7 9-11h-6z"/>',
+    globe:     '<circle cx="12" cy="12" r="9"/><path d="M12 3a14.5 14.5 0 0 0 0 18"/><path d="M12 3a14.5 14.5 0 0 1 0 18"/><path d="M3 12h18"/>',
+    heart:     '<path d="M12 21C12 21 3 14.5 3 8.5a4.5 4.5 0 0 1 9-0.5 4.5 4.5 0 0 1 9 .5c0 6-9 12.5-9 12.5z"/>',
+    message:   '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   };
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || '') + '</svg>';
 }
@@ -346,7 +372,8 @@ function renderShell() {
   if (nav === 'dashboard')    mainContent = renderShellDashboardContent();
   else if (nav === 'conversation') mainContent = renderShellConversationContent();
   else if (nav === 'modules') mainContent = renderShellModulesContent();
-  else if (nav === 'toolkit') mainContent = renderShellToolkitContent();
+  else if (nav === 'toolkit')    mainContent = renderShellToolkitContent();
+  else if (nav === 'community')  mainContent = renderShellCommunityContent();
   else if (nav === 'step')    mainContent = renderShellStepContent();
   else if (nav === 'complete') mainContent = renderComplete();
   else if (nav === 'detail')  mainContent = renderShellDetailContent();
@@ -372,6 +399,7 @@ function renderShellSidebar(activeNav) {
     { id: 'toolkit',   label: 'Toolkit',    icon: 'builder', badge: '3' },
     { id: 'library',   label: 'My Library', icon: 'folder' },
     { id: 'students',  label: 'Students',   icon: 'users' },
+    { id: 'community', label: 'Community',  icon: 'globe' },
   ];
   const settings = [{ id: 'settings', label: 'Settings', icon: 'settings' }];
   const detailMod = state.dashModuleId ? MODULES.find(function(m) { return m.id === state.dashModuleId; }) : null;
@@ -719,11 +747,125 @@ function renderShellDetailContent() {
   );
 }
 
+function renderShellCommunityContent() {
+  var posts = state.communityPosts || [];
+
+  // Compose box
+  var compose = (
+    '<div class="cm-compose">' +
+    '<div class="cm-compose-row">' +
+    '<div class="cm-avatar cm-me">SY</div>' +
+    '<textarea class="cm-compose-input" id="cm-new-post" placeholder="Share something with the community…" rows="2" ' +
+    'oninput="state.communityNewPost=this.value;this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'">' +
+    escHtml(state.communityNewPost || '') +
+    '</textarea>' +
+    '</div>' +
+    '<div class="cm-compose-foot">' +
+    '<button class="cm-post-btn" onclick="submitCommunityPost()">Post</button>' +
+    '</div>' +
+    '</div>'
+  );
+
+  // Posts
+  var postsHtml = posts.map(function(p) {
+    var commentsHtml = p.comments.map(function(c) {
+      return (
+        '<div class="cm-comment">' +
+        '<div class="cm-avatar cm-sm">' + escHtml(c.avatar) + '</div>' +
+        '<div class="cm-comment-body">' +
+        '<div class="cm-comment-head"><span class="cm-comment-author">' + escHtml(c.author) + '</span><span class="cm-time">' + escHtml(c.time) + '</span></div>' +
+        '<div class="cm-comment-text">' + escHtml(c.text) + '</div>' +
+        '</div></div>'
+      );
+    }).join('');
+
+    var commentInput = p.showComments
+      ? ('<div class="cm-reply-row">' +
+         '<div class="cm-avatar cm-sm cm-me">SY</div>' +
+         '<input class="cm-reply-input" type="text" placeholder="Write a comment…" ' +
+         'value="' + escHtml(p.commentInput || '') + '" ' +
+         'oninput="state.communityPosts.find(function(x){return x.id===' + p.id + '}).commentInput=this.value" ' +
+         'onkeydown="if(event.key===\'Enter\'){submitCommunityComment(' + p.id + ')}" />' +
+         '</div>')
+      : '';
+
+    return (
+      '<div class="cm-post">' +
+      '<div class="cm-post-head">' +
+      '<div class="cm-avatar">' + escHtml(p.avatar) + '</div>' +
+      '<div class="cm-post-meta">' +
+      '<span class="cm-author">' + escHtml(p.author) + '</span>' +
+      '<span class="cm-role">' + escHtml(p.role) + '</span>' +
+      '</div>' +
+      '<span class="cm-time">' + escHtml(p.time) + '</span>' +
+      '</div>' +
+      '<p class="cm-post-text">' + escHtml(p.text) + '</p>' +
+      '<div class="cm-post-actions">' +
+      '<button class="cm-action-btn' + (p.liked ? ' cm-liked' : '') + '" onclick="likeCommunityPost(' + p.id + ')">' +
+      iconSVG('heart', 15, 2) + '<span>' + p.likes + '</span></button>' +
+      '<button class="cm-action-btn" onclick="toggleCommunityComments(' + p.id + ')">' +
+      iconSVG('message', 15, 2) + '<span>' + p.comments.length + (p.comments.length === 1 ? ' comment' : ' comments') + '</span></button>' +
+      '</div>' +
+      (p.showComments
+        ? '<div class="cm-comments">' + commentsHtml + commentInput + '</div>'
+        : '') +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div class="cm-layout">' +
+    '<div class="sh-section-head" style="margin-bottom:4px">' +
+    '<div><h2>Community <span class="sh-accent">feed</span></h2><div class="sh-sub">Share ideas and questions with fellow ESL educators.</div></div>' +
+    '</div>' +
+    compose +
+    '<div class="cm-feed">' + postsHtml + '</div>' +
+    '</div>'
+  );
+}
+
+function submitCommunityPost() {
+  var text = (state.communityNewPost || '').trim();
+  if (!text) return;
+  state.communityPosts.unshift({
+    id: Date.now(), author: 'Shiyu Z.', avatar: 'SY', role: 'Middle School ESL',
+    time: 'Just now', text: text, likes: 0, liked: false,
+    showComments: false, commentInput: '', comments: []
+  });
+  state.communityNewPost = '';
+  render();
+}
+
+function likeCommunityPost(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (!p) return;
+  p.liked = !p.liked;
+  p.likes += p.liked ? 1 : -1;
+  render();
+}
+
+function toggleCommunityComments(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (p) p.showComments = !p.showComments;
+  render();
+}
+
+function submitCommunityComment(id) {
+  var p = state.communityPosts.find(function(x) { return x.id === id; });
+  if (!p) return;
+  var text = (p.commentInput || '').trim();
+  if (!text) return;
+  p.comments.push({ id: Date.now(), author: 'Shiyu Z.', avatar: 'SY', time: 'Just now', text: text });
+  p.commentInput = '';
+  render();
+}
+
 function renderShellSimpleContent(nav) {
   const configs = {
     toolkit:  { icon: 'builder',  title: 'Toolkit',         body: 'Browse the co-design tools to help you build worksheets, rubrics, and lesson plans.' },
     library:  { icon: 'folder',   title: 'My Library',      body: 'Every worksheet and rubric you save lives here. Use the Resource Generator inside any module to add more.' },
     students: { icon: 'users',    title: 'Students',        body: 'Add a roster to start using the Student Evaluator. We\'ll keep it private to your account.' },
+    community: { icon: 'globe',    title: 'Community',       body: 'Connect with other ESL educators — share lessons, swap tips, and learn together.' },
     settings: { icon: 'settings', title: 'Settings',        body: 'Profile, notifications, and AI preferences will live here.' },
   };
   const c = configs[nav] || { icon: 'home', title: 'Dashboard', body: '' };
