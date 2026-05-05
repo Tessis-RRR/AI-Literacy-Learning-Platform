@@ -99,3 +99,72 @@ class PromptSubmission(models.Model):
 
     def __str__(self):
         return f'{self.participant_id} | {self.submission_type} #{self.attempt_number} | {self.total_score}/15 ({self.overall_feedback})'
+
+
+# ── Module 2: Lesson Builder ────────────────────────────────
+
+class Module2Session(models.Model):
+    """Tracks a Module 2 Lesson Builder session."""
+    STEP_CHOICES = [
+        ('opening', 'Opening'),
+        ('desired_results', 'Desired Results'),
+        ('learner_context', 'Learner & Context'),
+        ('evidence_of_learning', 'Evidence of Learning'),
+        ('instructional_plan', 'Instructional Plan'),
+        ('output_requirements', 'Output Requirements'),
+        ('context_summary', 'Context Summary'),
+        ('lesson_generation', 'Lesson Generation'),
+        ('local_adjustment', 'Local Adjustment'),
+        ('final_review', 'Final Review'),
+        ('completed', 'Completed'),
+    ]
+    COMPLETION_CHOICES = [
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('abandoned', 'Abandoned'),
+    ]
+
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='module2_sessions', null=True, blank=True)
+    participant_id = models.TextField(null=True, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    current_step = models.CharField(max_length=100, choices=STEP_CHOICES, default='opening')
+    completion_status = models.CharField(max_length=50, choices=COMPLETION_CHOICES, default='in_progress')
+
+    global_context_json = models.JSONField(default=dict)
+    generated_lesson_json = models.JSONField(default=dict)
+    revised_lesson_json = models.JSONField(default=dict)
+    final_lesson_json = models.JSONField(default=dict)
+    section_feedback_json = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'module2_sessions'
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f'Module2Session {self.id} | {self.participant_id} | {self.current_step}'
+
+
+class GlobalContextSurvey(models.Model):
+    """Stores the five-part framework responses for a Module 2 session."""
+    session = models.OneToOneField(Module2Session, on_delete=models.CASCADE, related_name='context_survey')
+
+    # Five framework parts (stored as JSON for flexibility)
+    desired_results = models.JSONField(default=dict)
+    learner_context = models.JSONField(default=dict)
+    evidence_of_learning = models.JSONField(default=dict)
+    instructional_plan = models.JSONField(default=dict)
+    output_requirements = models.JSONField(default=dict)
+
+    # Required open-ended responses
+    required_learning_goal_text = models.TextField(blank=True)
+    required_local_context_text = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'global_context_surveys'
+
+    def __str__(self):
+        return f'ContextSurvey for Session {self.session_id}'

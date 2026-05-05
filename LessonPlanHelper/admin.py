@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Participant, LogEvent, StepTime, ButtonClick, PromptSubmission
+from .models import Participant, LogEvent, StepTime, ButtonClick, PromptSubmission, Module2Session, GlobalContextSurvey
 
 
 @admin.register(Participant)
@@ -43,3 +43,85 @@ class PromptSubmissionAdmin(admin.ModelAdmin):
     list_filter   = ('submission_type',)
     search_fields = ('participant_id',)
     ordering      = ('submitted_at',)
+
+
+# ── Module 2: Lesson Builder ───────────────────────────────
+
+@admin.register(Module2Session)
+class Module2SessionAdmin(admin.ModelAdmin):
+    list_display  = ('id', 'participant_id', 'current_step', 'completion_status', 'started_at', 'completed_at')
+    list_filter   = ('current_step', 'completion_status', 'started_at')
+    search_fields = ('participant_id', 'user__username')
+    ordering      = ('-started_at',)
+    readonly_fields = ('started_at', 'completed_at')
+
+    fieldsets = (
+        ('Session Info', {
+            'fields': ('user', 'participant_id', 'started_at', 'completed_at')
+        }),
+        ('Status', {
+            'fields': ('current_step', 'completion_status')
+        }),
+        ('Context Data', {
+            'fields': ('global_context_json',),
+            'classes': ('collapse',)
+        }),
+        ('Generated Lesson', {
+            'fields': ('generated_lesson_json',),
+            'classes': ('collapse',)
+        }),
+        ('Revised Lesson', {
+            'fields': ('revised_lesson_json',),
+            'classes': ('collapse',)
+        }),
+        ('Final Lesson', {
+            'fields': ('final_lesson_json',),
+            'classes': ('collapse',)
+        }),
+        ('Section Feedback', {
+            'fields': ('section_feedback_json',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(GlobalContextSurvey)
+class GlobalContextSurveyAdmin(admin.ModelAdmin):
+    list_display  = ('session_id', 'created_at', 'updated_at')
+    list_filter   = ('created_at', 'updated_at')
+    search_fields = ('session__participant_id',)
+    ordering      = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        ('Session', {
+            'fields': ('session',)
+        }),
+        ('Required Responses', {
+            'fields': ('required_learning_goal_text', 'required_local_context_text')
+        }),
+        ('Desired Results', {
+            'fields': ('desired_results',),
+            'classes': ('collapse',)
+        }),
+        ('Learner & Context', {
+            'fields': ('learner_context',),
+            'classes': ('collapse',)
+        }),
+        ('Evidence of Learning', {
+            'fields': ('evidence_of_learning',),
+            'classes': ('collapse',)
+        }),
+        ('Instructional Plan', {
+            'fields': ('instructional_plan',),
+            'classes': ('collapse',)
+        }),
+        ('Output Requirements', {
+            'fields': ('output_requirements',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

@@ -8,7 +8,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from openai import OpenAI
-from .models import Participant, LogEvent, StepTime, ButtonClick, PromptSubmission
+from .models import Participant, LogEvent, StepTime, ButtonClick, PromptSubmission, Module2Session, GlobalContextSurvey
+from django.contrib.auth.models import User
+from django.utils import timezone
 
 # ── OpenAI client ────────────────────────────────────────────
 client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
@@ -608,3 +610,418 @@ def lesson_chat(request):
         return JsonResponse({'reply': reply})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── MODULE 2: LESSON BUILDER ───────────────────────────────
+
+@csrf_exempt
+@require_POST
+def module2_start(request):
+    """Create a new Module 2 session."""
+    try:
+        body = json.loads(request.body)
+        user_id = body.get('userId')
+        participant_id = body.get('participantId')
+
+        # Use authenticated user or create anonymous session
+        user = None
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                pass
+
+        session = Module2Session.objects.create(
+            user=user,
+            participant_id=participant_id,
+            current_step='opening',
+            completion_status='in_progress'
+        )
+
+        return JsonResponse({
+            'sessionId': session.id,
+            'currentStep': session.current_step,
+            'status': session.completion_status
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def module2_save_context(request):
+    """Save the five-part context survey."""
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body = json.loads(request.body)
+        session_id = body.get('sessionId')
+        context_data = body.get('contextData', {})
+
+        session = Module2Session.objects.get(id=session_id)
+
+        # Save context
+        context_survey, created = GlobalContextSurvey.objects.update_or_create(
+            session=session,
+            defaults={
+                'desired_results': context_data.get('desiredResults', {}),
+                'learner_context': context_data.get('learnerContext', {}),
+                'evidence_of_learning': context_data.get('evidenceOfLearning', {}),
+                'instructional_plan': context_data.get('instructionalPlan', {}),
+                'output_requirements': context_data.get('outputRequirements', {}),
+                'required_learning_goal_text': context_data.get('requiredLearningGoal', ''),
+                'required_local_context_text': context_data.get('requiredLocalContext', ''),
+            }
+        )
+
+        session.global_context_json = context_data
+        session.current_step = 'context_summary'
+        session.save()
+
+        # Generate context summary
+        summary = _generate_context_summary(context_data)
+
+        return JsonResponse({
+            'success': True,
+            'contextSummary': summary,
+            'currentStep': session.current_step
+        })
+    except Module2Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def module2_generate_lesson(request):
+    """Generate the full lesson draft from the global context."""
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body = json.loads(request.body)
+        session_id = body.get('sessionId')
+
+        session = Module2Session.objects.get(id=session_id)
+        context_data = session.global_context_json
+
+        # Build the generation prompt
+        generation_prompt = _build_generation_prompt(context_data)
+
+        system_prompt = """You are an expert ESL lesson planner. Generate a complete, practical classroom-ready lesson plan based on the teacher's five-part context.
+
+Return ONLY valid JSON with this exact structure (no markdown, no extra keys):
+{
+  "lesson_title": "...",
+  "desired_results": "...",
+  "learner_context": "...",
+  "evidence_of_learning": "...",
+  "instructional_plan": "...",
+  "output_requirements": "...",
+  "materials": "...",
+  "teacher_notes": "..."
+}"""
+
+        response = client.chat.completions.create(
+            model=settings.GENERATE_MODEL,
+            temperature=0.7,
+            max_tokens=3000,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': generation_prompt},
+            ]
+        )
+
+        lesson_draft = json.loads(response.choices[0].message.content.strip())
+        session.generated_lesson_json = lesson_draft
+        session.current_step = 'lesson_generation'
+        session.save()
+
+        return JsonResponse({
+            'lessonDraft': lesson_draft,
+            'currentStep': session.current_step
+        })
+    except Module2Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def module2_evaluate_draft(request):
+    """Evaluate the lesson draft and return feedback for all five parts."""
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body = json.loads(request.body)
+        session_id = body.get('sessionId')
+
+        session = Module2Session.objects.get(id=session_id)
+        lesson_draft = session.generated_lesson_json
+        context_data = session.global_context_json
+
+        # Build feedback prompt
+        feedback_prompt = _build_feedback_prompt(lesson_draft, context_data)
+
+        system_prompt = """You are an expert ESL curriculum evaluator. Evaluate the lesson plan across the 5-Part Framework.
+
+For each section, provide: what works, what to improve, and a suggested adjustment.
+
+Return ONLY valid JSON:
+{
+  "section_feedback": {
+    "desired_results": {
+      "what_works": "...",
+      "what_to_improve": "...",
+      "suggested_adjustment": "..."
+    },
+    "learner_context": {...},
+    "evidence_of_learning": {...},
+    "instructional_plan": {...},
+    "output_requirements": {...}
+  }
+}"""
+
+        response = client.chat.completions.create(
+            model=settings.EVAL_MODEL,
+            temperature=0,
+            max_tokens=1500,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': feedback_prompt},
+            ]
+        )
+
+        feedback_response = json.loads(response.choices[0].message.content.strip())
+        session.section_feedback_json = feedback_response.get('section_feedback', {})
+        session.current_step = 'local_adjustment'
+        session.save()
+
+        return JsonResponse({
+            'sectionFeedback': session.section_feedback_json,
+            'currentStep': session.current_step
+        })
+    except Module2Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def module2_revise_lesson(request):
+    """Revise the lesson based on quick action or custom request."""
+    if not client:
+        return JsonResponse({'error': 'OPENAI_API_KEY not configured.'}, status=503)
+    try:
+        body = json.loads(request.body)
+        session_id = body.get('sessionId')
+        quick_action = body.get('quickAction')
+        custom_request = body.get('customRequest')
+
+        session = Module2Session.objects.get(id=session_id)
+        lesson_draft = session.revised_lesson_json if session.revised_lesson_json else session.generated_lesson_json
+        context_data = session.global_context_json
+
+        # Build revision prompt
+        revision_prompt = _build_revision_prompt(lesson_draft, context_data, quick_action, custom_request)
+
+        system_prompt = """You are an expert ESL lesson planner. Revise the lesson based on the teacher's request while preserving the 5-Part Framework and respecting the original classroom context.
+
+Return ONLY valid JSON with revised lesson:
+{
+  "lesson_title": "...",
+  "desired_results": "...",
+  "learner_context": "...",
+  "evidence_of_learning": "...",
+  "instructional_plan": "...",
+  "output_requirements": "...",
+  "materials": "...",
+  "teacher_notes": "..."
+}"""
+
+        response = client.chat.completions.create(
+            model=settings.GENERATE_MODEL,
+            temperature=0.7,
+            max_tokens=3000,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': revision_prompt},
+            ]
+        )
+
+        revised_lesson = json.loads(response.choices[0].message.content.strip())
+        session.revised_lesson_json = revised_lesson
+        session.save()
+
+        # Generate updated feedback
+        feedback_prompt = _build_feedback_prompt(revised_lesson, context_data)
+
+        response = client.chat.completions.create(
+            model=settings.EVAL_MODEL,
+            temperature=0,
+            max_tokens=1500,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': """Evaluate the revised lesson across the 5-Part Framework.
+Return JSON: {"section_feedback": {"desired_results": {...}, ...}}"""},
+                {'role': 'user', 'content': feedback_prompt},
+            ]
+        )
+
+        feedback_response = json.loads(response.choices[0].message.content.strip())
+        session.section_feedback_json = feedback_response.get('section_feedback', {})
+        session.save()
+
+        return JsonResponse({
+            'revisedLesson': revised_lesson,
+            'sectionFeedback': session.section_feedback_json
+        })
+    except Module2Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def module2_finalize(request):
+    """Finalize and save the accepted lesson."""
+    try:
+        body = json.loads(request.body)
+        session_id = body.get('sessionId')
+        final_lesson = body.get('finalLesson', {})
+
+        # session_id may be absent when the user branched from the library
+        # (no backend session was started). Persist if we have a valid id.
+        try:
+            session_id_int = int(session_id) if session_id else None
+        except (TypeError, ValueError):
+            session_id_int = None
+
+        if session_id_int:
+            try:
+                session = Module2Session.objects.get(id=session_id_int)
+                session.final_lesson_json = final_lesson
+                session.current_step = 'completed'
+                session.completion_status = 'completed'
+                session.completed_at = timezone.now()
+                session.save()
+            except Module2Session.DoesNotExist:
+                pass  # session missing is fine for library-branched flows
+
+        return JsonResponse({'success': True, 'currentStep': 'completed', 'completionStatus': 'completed'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── Module 2 Helpers ─────────────────────────────────────────
+
+def _generate_context_summary(context_data):
+    """Generate a readable summary of the collected context."""
+    desired = context_data.get('desiredResults', {})
+    learner = context_data.get('learnerContext', {})
+    evidence = context_data.get('evidenceOfLearning', {})
+    plan = context_data.get('instructionalPlan', {})
+    output = context_data.get('outputRequirements', {})
+
+    summary = f"""Here's what I'll use to build your lesson:
+
+**Desired Results:** {desired.get('languageFocus', 'General language')} - {context_data.get('requiredLearningGoal', 'Goal not specified')}
+
+**Learner & Context:** {learner.get('englishProficiencyLevel', 'Not specified')} level students; {learner.get('classroomFactor', 'standard classroom')}. {context_data.get('requiredLocalContext', '')}
+
+**Evidence of Learning:** {evidence.get('demonstrationType', 'Demonstration method not specified')}
+
+**Instructional Plan:** {plan.get('lessonStructure', 'Standard structure')} with {plan.get('scaffold', 'standard supports')}
+
+**Output Requirements:** {output.get('outputType', 'Full lesson plan')} - {output.get('detailLevel', 'Standard detail')}"""
+
+    return summary
+
+
+def _build_generation_prompt(context_data):
+    """Build the prompt for generating the lesson from context."""
+    desired = context_data.get('desiredResults', {})
+    learner = context_data.get('learnerContext', {})
+    evidence = context_data.get('evidenceOfLearning', {})
+    plan = context_data.get('instructionalPlan', {})
+    output = context_data.get('outputRequirements', {})
+
+    prompt = f"""Generate a complete ESL lesson plan using this teacher's context:
+
+**Desired Results:**
+- Language Focus: {desired.get('languageFocus', 'Not specified')}
+- Student Outcome Type: {desired.get('studentOutcomeType', 'Not specified')}
+- Learning Goal: {context_data.get('requiredLearningGoal', 'Not specified')}
+
+**Learner & Context:**
+- Proficiency Level: {learner.get('englishProficiencyLevel', 'Not specified')}
+- Classroom Factor: {learner.get('classroomFactor', 'Not specified')}
+- Local Context Details: {context_data.get('requiredLocalContext', 'Not specified')}
+
+**Evidence of Learning:**
+- Demonstration Type: {evidence.get('demonstrationType', 'Not specified')}
+- Focus: {evidence.get('evidenceFocus', 'Not specified')}
+
+**Instructional Plan:**
+- Lesson Structure: {plan.get('lessonStructure', 'Not specified')}
+- Scaffolds: {plan.get('scaffold', 'Not specified')}
+
+**Output Requirements:**
+- Output Type: {output.get('outputType', 'Full lesson plan')}
+- Detail Level: {output.get('detailLevel', 'Standard')}
+
+Create a practical, immediately usable lesson plan that respects all these constraints."""
+
+    return prompt
+
+
+def _build_feedback_prompt(lesson_draft, context_data):
+    """Build the prompt for evaluating the lesson across 5 parts."""
+    prompt = f"""Evaluate this ESL lesson against the teacher's context and 5-Part Framework:
+
+**Original Context:**
+- Learning Goal: {context_data.get('requiredLearningGoal', 'Not specified')}
+- Learner Context: {context_data.get('requiredLocalContext', 'Not specified')}
+
+**Generated Lesson:**
+{json.dumps(lesson_draft, ensure_ascii=False, indent=2)}
+
+For each of these 5 sections, provide:
+1. What works (1 sentence)
+2. What to improve (1 sentence)
+3. Suggested adjustment (1 concrete action)
+
+Sections: desired_results, learner_context, evidence_of_learning, instructional_plan, output_requirements"""
+
+    return prompt
+
+
+def _build_revision_prompt(lesson_draft, context_data, quick_action, custom_request):
+    """Build the prompt for revising the lesson."""
+    revision_instruction = quick_action or custom_request or "Make the lesson more effective."
+
+    prompt = f"""Revise this ESL lesson based on the teacher's request:
+
+**Original Context (preserve this):**
+- Learning Goal: {context_data.get('requiredLearningGoal', 'Not specified')}
+- Learner Context: {context_data.get('requiredLocalContext', 'Not specified')}
+- Proficiency Level: {context_data.get('learnerContext', {}).get('englishProficiencyLevel', 'Not specified')}
+
+**Current Lesson:**
+{json.dumps(lesson_draft, ensure_ascii=False, indent=2)}
+
+**Teacher's Revision Request:** {revision_instruction}
+
+Revise the entire lesson to address this request while:
+1. Preserving the 5-Part Framework structure
+2. Respecting the original classroom context and proficiency level
+3. Avoiding new materials or technology not mentioned in the original context
+4. Keeping activities realistic and practical"""
+
+    return prompt
