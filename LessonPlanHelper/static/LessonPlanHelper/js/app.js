@@ -97,7 +97,30 @@ const state = {
   lbCreateStep: 'brief',
   lbCreateBrief: '',
   lbSurvey: { gradeLevel: '', proficiency: '', duration: '', skills: [], topic: '', classSize: '' },
-  libraryActiveId: null
+  libraryActiveId: null,
+  // Module 2: Lesson Builder
+  m2SessionId: null,
+  m2Stage: 'opening', // opening | collecting_context | context_summary | lesson_generation | local_adjustment | completed
+  m2ArchiveOpen: false,
+  m2ArchiveSelected: null, // id of library item expanded in archive
+  m2Messages: [
+    { role: 'ai', text: "Let's build your ESL lesson together. I'll ask a few quick questions using the 5-Part Framework from Module 1, then I'll draft a lesson plan you can adjust for your classroom." }
+  ],
+  m2ContextData: {
+    desiredResults: { languageFocus: [], studentOutcomeType: [] },
+    learnerContext: { englishProficiencyLevel: [], classroomFactor: [] },
+    evidenceOfLearning: { demonstrationType: [], evidenceFocus: [] },
+    instructionalPlan: { lessonStructure: [], scaffold: [] },
+    outputRequirements: { outputType: [], detailLevel: [] },
+    requiredLearningGoal: '',
+    requiredLocalContext: ''
+  },
+  m2CurrentPart: 'desiredResults', // which part of the framework we're on
+  m2LessonDraft: null,
+  m2SectionFeedback: null,
+  m2RevisedLesson: null,
+  m2FinalLesson: null,
+  m2CustomRequest: ''
 };
 
 /* ── Progress persistence ───────────────────────────────── */
@@ -357,6 +380,9 @@ function shellOpenModule(id) {
     const visited = state.progress[mod.id]?.stepsVisited;
     const next = visited ? Math.min(visited.size, mod.steps_data.length - 1) : 0;
     navigateStep(mod.id, next);
+  } else if (mod && mod.id === 2) {
+    // Module 2: Lesson Builder (new chat-based interface)
+    shellNav('module2');
   } else if (mod && mod.title === 'Lesson Builder') {
     shellNav('lesson-builder');
   } else {
@@ -400,6 +426,7 @@ function renderShell() {
   else if (nav === 'step')    mainContent = renderShellStepContent();
   else if (nav === 'complete') mainContent = renderComplete();
   else if (nav === 'detail')       mainContent = renderShellDetailContent();
+  else if (nav === 'module2')      mainContent = renderModule2Content();
   else if (nav === 'lesson-builder') mainContent = renderShellLessonBuilderContent();
   else if (nav === 'library')    mainContent = renderShellLibraryContent();
   else                        mainContent = renderShellSimpleContent(nav);
@@ -1188,6 +1215,786 @@ function lbSendChat() {
     var msgs = state.lessonChat;
     if (msgs.length && msgs[msgs.length-1].text === '...') msgs[msgs.length-1].text = 'Error: ' + err.message;
     render();
+  });
+}
+
+/* ────── Module 2: Lesson Builder ────────────────────────────── */
+
+function renderModule2Content() {
+  const stage = state.m2Stage;
+  let mainContent = '';
+
+  if (stage === 'opening') {
+    mainContent = renderM2Opening();
+  } else if (stage === 'collecting_context') {
+    mainContent = renderM2CollectingContext();
+  } else if (stage === 'context_summary') {
+    mainContent = renderM2ContextSummary();
+  } else if (stage === 'lesson_generation') {
+    mainContent = renderM2GeneratingLesson();
+  } else if (stage === 'local_adjustment') {
+    mainContent = renderM2LocalAdjustment();
+  } else if (stage === 'completed') {
+    mainContent = renderM2Completion();
+  }
+
+  return (
+    '<div class="module2-container">' +
+    '<div class="module2-header">' +
+    '<button class="m2-back-btn" onclick="shellNav(\'toolkit\')">' + iconSVG('arrowL', 14) + ' Toolkit</button>' +
+    '<h1 class="m2-title">ESL Lesson Builder</h1>' +
+    '</div>' +
+    '<div class="module2-content">' +
+    mainContent +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderM2Opening() {
+  const files = state.lessonFiles || [];
+
+  const librarySection = files.length ? (
+    '<div class="m2-opening-library">' +
+    '<div class="m2-opening-library-label">' + iconSVG('folder', 13) + ' Or edit a saved lesson</div>' +
+    '<div class="m2-opening-library-list">' +
+    files.map(f =>
+      '<div class="m2-opening-lib-item" onclick="m2BranchFromLibrary(' + f.id + ')">' +
+      '<div class="m2-opening-lib-item-icon">' + iconSVG('file', 14) + '</div>' +
+      '<div class="m2-opening-lib-item-body">' +
+      '<div class="m2-opening-lib-item-name">' + escHtml(f.name) + '</div>' +
+      '<div class="m2-opening-lib-item-meta">' + escHtml(f.grade || '') + (f.modified ? (f.grade ? ' · ' : '') + escHtml(f.modified) : '') + '</div>' +
+      '</div>' +
+      '<span class="m2-opening-lib-item-action">' + iconSVG('arrowR', 12) + ' Edit</span>' +
+      '</div>'
+    ).join('') +
+    '</div>' +
+    '</div>'
+  ) : '';
+
+  return (
+    '<div class="m2-opening">' +
+    '<div class="m2-opening-icon">' + iconSVG('sparkle', 28, 1.5) + '</div>' +
+    '<h2>ESL Lesson Builder</h2>' +
+    '<div class="m2-opening-msg">' +
+    "Let's build your ESL lesson together. I'll ask a few quick questions using the <strong>5-Part Framework</strong>, then draft a classroom-ready lesson plan you can refine." +
+    '</div>' +
+    '<div class="m2-opening-steps">' +
+    '<div class="m2-opening-step"><div class="m2-opening-step-num" style="background:#DBEAFE;color:#1D4ED8">1</div><span>Answer questions about your <strong>goals</strong>, students, and classroom context</span></div>' +
+    '<div class="m2-opening-step"><div class="m2-opening-step-num" style="background:#D1FAE5;color:#065F46">2</div><span>AI generates a <strong>complete lesson plan</strong> using the 5-Part Framework</span></div>' +
+    '<div class="m2-opening-step"><div class="m2-opening-step-num" style="background:#EDE9FE;color:#5B21B6">3</div><span><strong>Adjust and refine</strong> until it fits your classroom perfectly</span></div>' +
+    '</div>' +
+    '<button class="m2-btn-primary" onclick="m2StartContextCollection()">' + iconSVG('arrowR', 15) + ' Start Building</button>' +
+    librarySection +
+    '</div>'
+  );
+}
+
+function m2PartMeta(part) {
+  const map = {
+    desiredResults:     { num: 1, cls: 'dr', label: 'Desired Results',     badge: 'Part 1' },
+    learnerContext:     { num: 2, cls: 'lc', label: 'Learner & Context',   badge: 'Part 2' },
+    evidenceOfLearning: { num: 3, cls: 'el', label: 'Evidence of Learning', badge: 'Part 3' },
+    instructionalPlan:  { num: 4, cls: 'ip', label: 'Instructional Plan',  badge: 'Part 4' },
+    outputRequirements: { num: 5, cls: 'or', label: 'Output Requirements', badge: 'Part 5' },
+  };
+  return map[part] || { num: 0, cls: '', label: part, badge: '' };
+}
+
+function renderM2Stepper() {
+  const parts = ['desiredResults','learnerContext','evidenceOfLearning','instructionalPlan','outputRequirements'];
+  const labels = ['Desired Results','Learner & Context','Evidence','Instr. Plan','Output'];
+  const clss   = ['dr','lc','el','ip','or'];
+  const currentIdx = parts.indexOf(state.m2CurrentPart);
+  const steps = parts.map((p, i) => {
+    let stCls = 'pending';
+    if (i < currentIdx) stCls = 'done step-' + clss[i];
+    else if (i === currentIdx) stCls = 'active';
+    const dot = i < currentIdx ? iconSVG('check', 12, 3) : (i + 1);
+    return (
+      '<div class="m2-step ' + stCls + '">' +
+      '<div class="m2-step-dot">' + dot + '</div>' +
+      '<div class="m2-step-label">' + labels[i] + '</div>' +
+      '</div>'
+    );
+  }).join('');
+  return '<div class="m2-stepper">' + steps + '</div>';
+}
+
+function renderM2CollectingContext() {
+  const part = state.m2CurrentPart;
+  const ctx = state.m2ContextData;
+  let content = '';
+
+  if (part === 'desiredResults') {
+    content = renderM2Part('Desired Results', 'First, let\'s clarify the learning goal.',
+      [
+        { type: 'choice', label: 'What is the main language focus of this lesson?', field: 'languageFocus',
+          options: ['Speaking', 'Reading', 'Writing', 'Listening', 'Vocabulary', 'Grammar', 'Integrated skills'] },
+        { type: 'choice', label: 'What kind of student outcome do you want?', field: 'studentOutcomeType',
+          options: ['Students can describe something', 'Students can explain an idea', 'Students can compare two things', 'Students can ask and answer questions', 'Students can summarize information', 'Students can write a short response', 'Other'] }
+      ],
+      'requiredLearningGoal', 'In one sentence, what do you want students to be able to do by the end of class?',
+      'Example: Students will be able to describe their favorite season using two adjectives and one complete sentence frame.'
+    );
+  } else if (part === 'learnerContext') {
+    content = renderM2Part('Learner & Context', 'Now let\'s make the lesson fit your students and classroom.',
+      [
+        { type: 'choice', label: 'What is your students\' English proficiency level?', field: 'englishProficiencyLevel',
+          options: ['L1', 'L2', 'L3', 'L4', 'L5', 'Mixed levels', 'Not sure'] },
+        { type: 'choice', label: 'What classroom factor should I pay closest attention to?', field: 'classroomFactor',
+          options: ['Low vocabulary', 'Mixed proficiency levels', 'Students are shy speaking English', 'Limited class time', 'Limited technology or materials', 'Large class size', 'Other'] }
+      ],
+      'requiredLocalContext', 'What details about your students, classroom, or teaching context should the lesson consider?',
+      'Example: I teach 7th grade students. Most are L2–L3 English learners, and they are shy when speaking. I have a projector but no student devices.'
+    );
+  } else if (part === 'evidenceOfLearning') {
+    content = renderM2Part('Evidence of Learning', 'How will students show they met the goal?',
+      [
+        { type: 'choice', label: 'How will students demonstrate their learning?', field: 'demonstrationType',
+          options: ['Say a sentence or short response', 'Write a sentence or short response', 'Complete an exit ticket', 'Discuss with a partner', 'Complete a short quiz', 'Other'] },
+        { type: 'choice', label: 'What is the main focus of the assessment?', field: 'evidenceFocus',
+          options: ['Clear communication', 'Accuracy', 'Use of vocabulary', 'Use of sentence frames', 'Comprehension', 'Other'] }
+      ],
+      null, null, null
+    );
+  } else if (part === 'instructionalPlan') {
+    content = renderM2Part('Instructional Plan', 'Let\'s plan how the lesson will unfold.',
+      [
+        { type: 'choice', label: 'What lesson structure do you prefer?', field: 'lessonStructure',
+          options: ['Warm-up → Model → Guided practice → Independent practice → Exit ticket', 'Warm-up → Direct instruction → Partner practice → Exit ticket', 'Review → New input → Practice → Assessment', 'Other'] },
+        { type: 'choice', label: 'What scaffolding support should be included?', field: 'scaffold',
+          options: ['Sentence frames', 'Word bank', 'Graphic organizer', 'Visual supports / pictures', 'Bilingual support', 'Worked example', 'No scaffolding needed'] }
+      ],
+      null, null, null
+    );
+  } else if (part === 'outputRequirements') {
+    content = renderM2Part('Output Requirements', 'What should the final lesson plan include?',
+      [
+        { type: 'choice', label: 'What type of output do you need?', field: 'outputType',
+          options: ['Full lesson plan', 'Mini-lesson (15–20 min)', 'Warm-up activity only', 'Practice worksheet', 'Vocabulary activity', 'Exit ticket', 'Other'] },
+        { type: 'choice', label: 'How much detail do you need?', field: 'detailLevel',
+          options: ['Standard lesson plan', 'Detailed script', 'Bullet points only', 'Teacher notes only', 'Student-facing materials'] }
+      ],
+      null, null, null
+    );
+  }
+
+  return (
+    '<div class="m2-collecting">' +
+    renderM2Stepper() +
+    content +
+    '</div>'
+  );
+}
+
+function renderM2Part(title, aiMessage, choices, requiredField, requiredLabel, requiredPlaceholder) {
+  const ctx = state.m2ContextData;
+  const part = state.m2CurrentPart;
+  const partCtx = ctx[part] || {};
+  const meta = m2PartMeta(part);
+
+  // Choice buttons
+  let choicesHtml = '';
+  choices.forEach(choice => {
+    const fieldValue = partCtx[choice.field];
+    const optionsHtml = choice.options.map(opt => {
+      const isActive = (Array.isArray(fieldValue) ? fieldValue.includes(opt) : fieldValue === opt) ? ' active' : '';
+      return '<button class="m2-choice-btn' + isActive + '" onclick="m2SetChoice(\'' + part + '\',\'' + choice.field + '\',\'' + opt.replace(/'/g, "\\'") + '\')">' + escHtml(opt) + '</button>';
+    }).join('');
+    choicesHtml += '<div class="m2-choice-group"><div class="m2-choice-label">' + escHtml(choice.label) + '</div><div class="m2-choice-buttons">' + optionsHtml + '</div></div>';
+  });
+
+  // Required text input (null = no text input)
+  const requiredValue = requiredField ? (partCtx[requiredField] || '') : '';
+  const textInputHtml = requiredField ? (
+    '<div class="m2-text-input-group">' +
+    '<label class="m2-label-required">' + escHtml(requiredLabel) + '</label>' +
+    '<textarea class="m2-text-input" placeholder="' + escAttr(requiredPlaceholder) + '" ' +
+    'oninput="m2SetContextField(\'' + part + '\',\'' + requiredField + '\',this.value)">' + escHtml(requiredValue) + '</textarea>' +
+    '</div>'
+  ) : '';
+
+  const allChoicesFilled = choices.every(c => {
+    const v = partCtx[c.field];
+    return Array.isArray(v) ? v.length > 0 : !!v;
+  });
+  const canContinue = allChoicesFilled && (!requiredField || requiredValue.trim());
+  const isLastPart = part === 'outputRequirements';
+
+  return (
+    '<div class="m2-part-panel">' +
+    '<div class="m2-part-header ph-' + meta.cls + '">' +
+    '<span class="m2-part-badge pb-' + meta.cls + '">' + meta.badge + ' · ' + meta.label + '</span>' +
+    '<div class="m2-part-ai-msg">' +
+    '<div class="m2-part-ai-avatar">' + iconSVG('sparkle', 14, 1.5) + '</div>' +
+    '<div class="m2-part-ai-text">' + escHtml(aiMessage) + '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="m2-part-body">' +
+    choicesHtml +
+    textInputHtml +
+    '</div>' +
+    '<div class="m2-part-footer">' +
+    (part !== 'desiredResults' ? '<button class="m2-btn-secondary" onclick="m2PrevPart()">' + iconSVG('arrowL', 14) + ' Back</button>' : '<span></span>') +
+    '<button class="m2-btn-primary" ' + (canContinue ? '' : 'disabled') + ' onclick="' + (isLastPart ? 'm2PrepareForGeneration()' : 'm2NextPart()') + '">' +
+    (isLastPart ? 'Review & Generate' : 'Next') + ' ' + iconSVG('arrowR', 14) +
+    '</button>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderM2ContextSummary() {
+  const ctx = state.m2ContextData;
+  const dr = ctx.desiredResults || {};
+  const lc = ctx.learnerContext || {};
+  const el = ctx.evidenceOfLearning || {};
+  const ip = ctx.instructionalPlan || {};
+  const or = ctx.outputRequirements || {};
+
+  return (
+    '<div class="m2-context-summary">' +
+    '<div class="m2-summary-ai-msg">' +
+    '<div class="m2-part-ai-avatar">' + iconSVG('sparkle', 14, 1.5) + '</div>' +
+    '<p>Here\'s what I\'ll use to build your lesson. Does everything look right?</p>' +
+    '</div>' +
+    '<div class="m2-summary">' +
+    '<h3>Your 5-Part Context</h3>' +
+    '<div class="m2-summary-grid">' +
+    '<div class="m2-summary-card sc-dr"><strong>Desired Results</strong>' + escHtml((dr.languageFocus || '') + (dr.languageFocus && dr.requiredLearningGoal ? ' — ' : '') + (dr.requiredLearningGoal || 'Goal not specified')) + '</div>' +
+    '<div class="m2-summary-card sc-lc"><strong>Learner & Context</strong>' + escHtml((lc.englishProficiencyLevel ? lc.englishProficiencyLevel + ' level' : 'Level not specified') + (lc.requiredLocalContext ? '; ' + lc.requiredLocalContext : '')) + '</div>' +
+    '<div class="m2-summary-card sc-el"><strong>Evidence of Learning</strong>' + escHtml((el.demonstrationType || 'Not specified') + (el.evidenceFocus ? ' · focus: ' + el.evidenceFocus : '')) + '</div>' +
+    '<div class="m2-summary-card sc-ip"><strong>Instructional Plan</strong>' + escHtml((ip.lessonStructure || 'Standard structure') + (ip.scaffold ? ' · scaffold: ' + ip.scaffold : '')) + '</div>' +
+    '<div class="m2-summary-card sc-or"><strong>Output Requirements</strong>' + escHtml((or.outputType || 'Full lesson plan') + (or.detailLevel ? ' · ' + or.detailLevel : '')) + '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="m2-summary-actions">' +
+    '<button class="m2-btn-secondary" onclick="m2ResetContext()">' + iconSVG('arrowL', 14) + ' Edit Context</button>' +
+    '<button class="m2-btn-primary" onclick="m2GenerateLesson()">' + iconSVG('sparkle', 14, 1.5) + ' Generate Lesson</button>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderM2GeneratingLesson() {
+  return (
+    '<div class="m2-generating">' +
+    '<div class="m2-spinner"></div>' +
+    '<h3>Building your lesson plan…</h3>' +
+    '<p>This takes just a moment</p>' +
+    '<div class="m2-gen-steps">' +
+    '<div class="m2-gen-step">' + iconSVG('target', 14, 2) + ' Analyzing your classroom context</div>' +
+    '<div class="m2-gen-step">' + iconSVG('check', 14, 2.5) + ' Designing learning objectives</div>' +
+    '<div class="m2-gen-step">' + iconSVG('list', 14, 2) + ' Planning activities &amp; scaffolds</div>' +
+    '<div class="m2-gen-step">' + iconSVG('clipboard', 14, 2) + ' Creating assessments</div>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function m2ToggleArchive() {
+  state.m2ArchiveOpen = !state.m2ArchiveOpen;
+  state.m2ArchiveSelected = null;
+  render();
+}
+
+function m2SelectArchiveItem(id) {
+  state.m2ArchiveSelected = state.m2ArchiveSelected === id ? null : id;
+  render();
+}
+
+function renderM2LibraryArchive() {
+  const files = state.lessonFiles || [];
+  const isOpen = state.m2ArchiveOpen;
+  const selectedId = state.m2ArchiveSelected;
+
+  const chevron = isOpen ? iconSVG('arrowL', 12) : iconSVG('arrowR', 12);
+  const header = (
+    '<div class="m2-archive-header" onclick="m2ToggleArchive()">' +
+    iconSVG('folder', 14) +
+    '<span>Library Archive</span>' +
+    (files.length ? '<span class="m2-archive-count">' + files.length + '</span>' : '') +
+    '<span class="m2-archive-chevron">' + chevron + '</span>' +
+    '</div>'
+  );
+
+  if (!isOpen) return '<div class="m2-archive-bar">' + header + '</div>';
+
+  let bodyHtml;
+  if (!files.length) {
+    bodyHtml = '<div class="m2-archive-empty">No saved lessons yet. Accept a lesson to save it here.</div>';
+  } else {
+    const archBlock = (label, val) => {
+      if (!val || !val.trim()) return '';
+      return '<div class="m2-archive-detail-block"><div class="m2-archive-detail-label">' + escHtml(label) + '</div>' +
+        '<div class="m2-archive-detail-val">' + escHtml(val).replace(/\n/g, '<br>') + '</div></div>';
+    };
+    bodyHtml = files.map(f => {
+      const isSelected = f.id === selectedId;
+      let detail = '';
+      if (isSelected) {
+        detail = (
+          '<div class="m2-archive-detail">' +
+          archBlock('Objectives', f.objectives) +
+          archBlock('Warm-Up', f.warmup) +
+          archBlock('Main Activity', f.mainActivity) +
+          archBlock('Assessment', f.assessment) +
+          archBlock('Homework', f.homework) +
+          '</div>'
+        );
+      }
+      return (
+        '<div class="m2-archive-item' + (isSelected ? ' m2-archive-item-open' : '') + '" onclick="m2SelectArchiveItem(' + f.id + ')">' +
+        '<div class="m2-archive-item-row">' +
+        iconSVG('file', 13) +
+        '<div class="m2-archive-item-info">' +
+        '<div class="m2-archive-item-name">' + escHtml(f.name) + '</div>' +
+        '<div class="m2-archive-item-meta">' + escHtml(f.grade || '') + (f.modified ? ' · ' + escHtml(f.modified) : '') + '</div>' +
+        '</div>' +
+        '<span class="m2-archive-item-chevron">' + iconSVG(isSelected ? 'arrowL' : 'arrowR', 11) + '</span>' +
+        '</div>' +
+        detail +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  return (
+    '<div class="m2-archive-bar m2-archive-bar-open">' +
+    header +
+    '<div class="m2-archive-body">' + bodyHtml + '</div>' +
+    '</div>'
+  );
+}
+
+function renderM2LocalAdjustment() {
+  const lesson = state.m2RevisedLesson || state.m2LessonDraft;
+  const feedback = state.m2SectionFeedback || {};
+
+  if (!lesson) return '<div class="m2-error">Lesson not found. Please try again.</div>';
+
+  const sectionOrder = [
+    { key: 'desired_results',    cls: 'dr', label: 'Desired Results' },
+    { key: 'learner_context',    cls: 'lc', label: 'Learner & Context' },
+    { key: 'evidence_of_learning', cls: 'el', label: 'Evidence of Learning' },
+    { key: 'instructional_plan', cls: 'ip', label: 'Instructional Plan' },
+    { key: 'output_requirements', cls: 'or', label: 'Output Requirements' },
+    { key: 'materials',          cls: 'mat', label: 'Materials' },
+  ];
+
+  const lessonSectionsHtml = sectionOrder.map(s => {
+    const val = lesson[s.key];
+    if (!val) return '';
+    return (
+      '<div class="m2-lesson-section m2-ls-' + s.cls + '">' +
+      '<strong>' + s.label + '</strong>' +
+      escHtml(val) +
+      '</div>'
+    );
+  }).join('');
+
+  const feedbackKeys = ['desired_results','learner_context','evidence_of_learning','instructional_plan','output_requirements'];
+  const feedbackLabels = { desired_results: 'Desired Results', learner_context: 'Learner & Context', evidence_of_learning: 'Evidence', instructional_plan: 'Instructional Plan', output_requirements: 'Output' };
+  const feedbackHtml = feedbackKeys.map(key => {
+    const data = feedback[key];
+    if (!data) return '';
+    return (
+      '<div class="m2-feedback-card">' +
+      '<h4>' + (feedbackLabels[key] || key) + '</h4>' +
+      (data.what_works    ? '<div class="m2-feedback-item"><strong>' + iconSVG('check', 11, 2.5) + ' Works:</strong> ' + escHtml(data.what_works) + '</div>' : '') +
+      (data.what_to_improve ? '<div class="m2-feedback-item"><strong>' + iconSVG('bolt', 11, 2) + ' Improve:</strong> ' + escHtml(data.what_to_improve) + '</div>' : '') +
+      (data.suggested_adjustment ? '<div class="m2-feedback-item"><strong>' + iconSVG('arrowR', 11, 2) + ' Try:</strong> ' + escHtml(data.suggested_adjustment) + '</div>' : '') +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div class="m2-adjustment">' +
+    '<div class="m2-adjustment-header">' +
+    '<h2>' + escHtml(lesson.lesson_title || 'Your Lesson Plan') + '</h2>' +
+    '<p>Review your lesson plan, then use quick actions or a custom request to refine it.</p>' +
+    '</div>' +
+    '<div class="m2-adjustment-content">' +
+    '<div class="m2-lesson-draft">' +
+    '<div class="m2-lesson-draft-hdr">' + iconSVG('file', 13, 2) + ' Lesson Draft</div>' +
+    lessonSectionsHtml +
+    '</div>' +
+    '<div class="m2-side-panel">' +
+    '<div class="m2-actions-label">Quick adjustments</div>' +
+    '<div class="m2-quick-actions">' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Make it easier\')">Make it easier</button>' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Make it more challenging\')">More challenging</button>' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Add more scaffolding\')">Add scaffolding</button>' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Make activities more interactive\')">More interactive</button>' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Shorten the lesson\')">Shorten</button>' +
+    '<button class="m2-action-btn" onclick="m2ReviseWithAction(\'Add bilingual support\')">Add bilingual</button>' +
+    '</div>' +
+    '<div class="m2-actions-divider"></div>' +
+    '<div class="m2-actions-label">Custom request</div>' +
+    '<div class="m2-custom-request">' +
+    '<textarea class="m2-custom-input" placeholder="Describe what you\'d like to change…" oninput="state.m2CustomRequest=this.value"></textarea>' +
+    '</div>' +
+    '<button class="m2-btn-secondary m2-apply-btn" onclick="m2ReviseWithCustom()">' + iconSVG('send', 14, 2) + ' Apply</button>' +
+    '<div class="m2-actions-divider"></div>' +
+    '<div class="m2-final-actions">' +
+    '<button class="m2-btn-secondary" onclick="m2RegenerateDraft()">' + iconSVG('arrowL', 14) + ' Regenerate</button>' +
+    '<button class="m2-btn-primary" onclick="m2AcceptLesson()">' + iconSVG('check', 14, 2.5) + ' Accept</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderM2Completion() {
+  const lesson = state.m2FinalLesson || state.m2RevisedLesson || state.m2LessonDraft;
+  const title = (lesson && lesson.lesson_title) ? lesson.lesson_title : 'Your Lesson Plan';
+  return (
+    '<div class="m2-completion">' +
+    '<div class="m2-success-banner">' +
+    '<h2>' + iconSVG('check', 22, 2.5) + ' Lesson ready!</h2>' +
+    '<p>Your lesson plan has been saved. You can now use it in your classroom.</p>' +
+    '</div>' +
+    '<div class="m2-final-lesson">' +
+    '<h3>' + escHtml(title) + '</h3>' +
+    '<div class="m2-export-buttons">' +
+    '<button class="m2-export-btn" onclick="alert(\'PDF export coming soon\')">' + iconSVG('file', 14, 2) + ' Export as PDF</button>' +
+    '<button class="m2-export-btn" onclick="m2CopyLesson()">' + iconSVG('clipboard', 14, 2) + ' Copy to Clipboard</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="m2-completion-actions">' +
+    '<button class="m2-btn-secondary" onclick="shellNav(\'toolkit\')">' + iconSVG('arrowL', 14) + ' Back to Toolkit</button>' +
+    '<button class="m2-btn-primary" onclick="m2NewLesson()">' + iconSVG('plus', 14) + ' Build Another Lesson</button>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function m2SetChoice(part, field, value) {
+  if (!state.m2ContextData[part]) state.m2ContextData[part] = {};
+  const arr = state.m2ContextData[part][field];
+  if (!Array.isArray(arr)) {
+    state.m2ContextData[part][field] = [value];
+  } else {
+    const idx = arr.indexOf(value);
+    if (idx === -1) arr.push(value); else arr.splice(idx, 1);
+  }
+  render();
+}
+
+function m2SetContextField(part, field, value) {
+  if (!state.m2ContextData[part]) state.m2ContextData[part] = {};
+  state.m2ContextData[part][field] = value;
+  // Update only the Next button disabled state — avoids full re-render which would
+  // reset the textarea cursor position on every keystroke.
+  const btn = document.querySelector('.m2-part-footer .m2-btn-primary');
+  if (btn) btn.disabled = !m2PartIsComplete(part);
+}
+
+function m2PartIsComplete(part) {
+  const choiceFields = {
+    desiredResults:     ['languageFocus', 'studentOutcomeType'],
+    learnerContext:     ['englishProficiencyLevel', 'classroomFactor'],
+    evidenceOfLearning: ['demonstrationType', 'evidenceFocus'],
+    instructionalPlan:  ['lessonStructure', 'scaffold'],
+    outputRequirements: ['outputType', 'detailLevel']
+  };
+  const requiredText = {
+    desiredResults: 'requiredLearningGoal',
+    learnerContext:  'requiredLocalContext'
+  };
+  const partCtx = state.m2ContextData[part] || {};
+  const allChoices = (choiceFields[part] || []).every(f => {
+    const v = partCtx[f];
+    return Array.isArray(v) ? v.length > 0 : !!v;
+  });
+  const reqField = requiredText[part];
+  const textOk = !reqField || (partCtx[reqField] || '').trim();
+  return allChoices && !!textOk;
+}
+
+function m2StartContextCollection() {
+  state.m2Stage = 'collecting_context';
+  state.m2CurrentPart = 'desiredResults';
+  state.m2Messages = [];
+  render();
+
+  fetch('/api/module2/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ participantId: getParticipantId() })
+  })
+  .then(r => r.json())
+  .then(data => { if (data.sessionId) state.m2SessionId = data.sessionId; })
+  .catch(() => {});
+}
+
+function m2BranchFromLibrary(id) {
+  const f = (state.lessonFiles || []).find(x => x.id === id);
+  if (!f) return;
+  // Load the saved lesson as the editable draft and jump straight to local_adjustment
+  state.m2LessonDraft = {
+    lesson_title:        f.name,
+    desired_results:     f.objectives   || '',
+    learner_context:     f.grade        || '',
+    evidence_of_learning: f.assessment  || '',
+    instructional_plan:  f.mainActivity || '',
+    output_requirements: f.homework     || '',
+    materials:           '',
+    teacher_notes:       ''
+  };
+  state.m2RevisedLesson = null;
+  state.m2SectionFeedback = null;
+  state.m2Stage = 'local_adjustment';
+  render();
+}
+
+function m2NextPart() {
+  const parts = ['desiredResults', 'learnerContext', 'evidenceOfLearning', 'instructionalPlan', 'outputRequirements'];
+  const idx = parts.indexOf(state.m2CurrentPart);
+  if (idx < parts.length - 1) {
+    state.m2CurrentPart = parts[idx + 1];
+    render();
+  }
+}
+
+function m2PrevPart() {
+  const parts = ['desiredResults', 'learnerContext', 'evidenceOfLearning', 'instructionalPlan', 'outputRequirements'];
+  const idx = parts.indexOf(state.m2CurrentPart);
+  if (idx > 0) {
+    state.m2CurrentPart = parts[idx - 1];
+    render();
+  }
+}
+
+function m2PrepareForGeneration() {
+  state.m2Stage = 'context_summary';
+  render();
+}
+
+function m2ResetContext() {
+  state.m2Stage = 'collecting_context';
+  state.m2CurrentPart = 'desiredResults';
+  render();
+}
+
+function m2GenerateLesson() {
+  state.m2Stage = 'lesson_generation';
+  render();
+
+  const ctx = state.m2ContextData;
+  const contextData = {
+    desiredResults: ctx.desiredResults,
+    learnerContext: ctx.learnerContext,
+    evidenceOfLearning: ctx.evidenceOfLearning,
+    instructionalPlan: ctx.instructionalPlan,
+    outputRequirements: ctx.outputRequirements,
+    requiredLearningGoal: (ctx.desiredResults && ctx.desiredResults.requiredLearningGoal) || '',
+    requiredLocalContext: (ctx.learnerContext && ctx.learnerContext.requiredLocalContext) || ''
+  };
+
+  const doGenerate = (sessionId) => {
+    fetch('/api/module2/save-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, contextData })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      return fetch('/api/module2/generate-lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      }).then(r => r.json());
+    })
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      state.m2LessonDraft = data.lessonDraft;
+      state.m2Stage = 'local_adjustment';
+      return fetch('/api/module2/evaluate-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      }).then(r => r.json());
+    })
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      state.m2SectionFeedback = data.sectionFeedback;
+      render();
+    })
+    .catch(err => {
+      alert('Error generating lesson: ' + err.message);
+      state.m2Stage = 'context_summary';
+      render();
+    });
+  };
+
+  if (state.m2SessionId) {
+    doGenerate(state.m2SessionId);
+  } else {
+    fetch('/api/module2/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participantId: getParticipantId() })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      state.m2SessionId = data.sessionId;
+      doGenerate(state.m2SessionId);
+    })
+    .catch(err => {
+      alert('Error starting session: ' + err.message);
+      state.m2Stage = 'context_summary';
+      render();
+    });
+  }
+}
+
+function m2ReviseWithAction(action) {
+  state.m2Stage = 'lesson_generation';
+  render();
+
+  fetch('/api/module2/revise-lesson', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: state.m2SessionId || null,
+      quickAction: action
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) throw new Error(data.error);
+    state.m2RevisedLesson = data.revisedLesson;
+    state.m2SectionFeedback = data.sectionFeedback;
+    state.m2Stage = 'local_adjustment';
+    render();
+  })
+  .catch(err => {
+    alert('Error revising lesson: ' + err.message);
+    state.m2Stage = 'local_adjustment';
+    render();
+  });
+}
+
+function m2ReviseWithCustom() {
+  if (!state.m2CustomRequest.trim()) {
+    alert('Please enter a custom request');
+    return;
+  }
+  state.m2Stage = 'lesson_generation';
+  render();
+
+  fetch('/api/module2/revise-lesson', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: state.m2SessionId || null,
+      customRequest: state.m2CustomRequest
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) throw new Error(data.error);
+    state.m2RevisedLesson = data.revisedLesson;
+    state.m2SectionFeedback = data.sectionFeedback;
+    state.m2CustomRequest = '';
+    state.m2Stage = 'local_adjustment';
+    render();
+  })
+  .catch(err => {
+    alert('Error revising lesson: ' + err.message);
+    state.m2Stage = 'local_adjustment';
+    render();
+  });
+}
+
+function m2RegenerateDraft() {
+  state.m2Stage = 'context_summary';
+  state.m2LessonDraft = null;
+  state.m2SectionFeedback = null;
+  render();
+}
+
+function m2AcceptLesson() {
+  const final = state.m2RevisedLesson || state.m2LessonDraft;
+  fetch('/api/module2/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: state.m2SessionId || null,
+      finalLesson: final
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) throw new Error(data.error);
+    state.m2FinalLesson = final;
+    // Save into the library so the archive panel reflects it immediately
+    const newId = Date.now();
+    state.lessonFiles.push({
+      id: newId,
+      name: final.lesson_title || 'Untitled Lesson',
+      grade: '',
+      modified: 'just now',
+      objectives: final.desired_results || '',
+      warmup: '',
+      mainActivity: final.instructional_plan || '',
+      assessment: final.evidence_of_learning || '',
+      homework: final.output_requirements || ''
+    });
+    state.lessonActiveFile = newId;
+    state.m2Stage = 'completed';
+    render();
+  })
+  .catch(err => {
+    alert('Error saving lesson: ' + err.message);
+  });
+}
+
+function m2NewLesson() {
+  state.m2SessionId = null;
+  state.m2Stage = 'opening';
+  state.m2Messages = [{ role: 'ai', text: "Let's build your ESL lesson together. I'll ask a few quick questions using the 5-Part Framework from Module 1, then I'll draft a lesson plan you can adjust for your classroom." }];
+  state.m2ContextData = {
+    desiredResults: { languageFocus: [], studentOutcomeType: [] },
+    learnerContext: { englishProficiencyLevel: [], classroomFactor: [] },
+    evidenceOfLearning: { demonstrationType: [], evidenceFocus: [] },
+    instructionalPlan: { lessonStructure: [], scaffold: [] },
+    outputRequirements: { outputType: [], detailLevel: [] },
+    requiredLearningGoal: '',
+    requiredLocalContext: ''
+  };
+  state.m2CurrentPart = 'desiredResults';
+  state.m2LessonDraft = null;
+  state.m2SectionFeedback = null;
+  state.m2RevisedLesson = null;
+  state.m2FinalLesson = null;
+  state.m2CustomRequest = '';
+  render();
+}
+
+function m2CopyLesson() {
+  const lesson = state.m2FinalLesson || state.m2RevisedLesson || state.m2LessonDraft;
+  if (!lesson) return;
+  const text = [
+    lesson.lesson_title || 'Lesson Plan',
+    '',
+    'DESIRED RESULTS', lesson.desired_results || '',
+    '', 'LEARNER & CONTEXT', lesson.learner_context || '',
+    '', 'EVIDENCE OF LEARNING', lesson.evidence_of_learning || '',
+    '', 'INSTRUCTIONAL PLAN', lesson.instructional_plan || '',
+    '', 'OUTPUT REQUIREMENTS', lesson.output_requirements || '',
+    '', 'MATERIALS', lesson.materials || '',
+    '', 'TEACHER NOTES', lesson.teacher_notes || '',
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Lesson copied to clipboard!');
+  }).catch(() => {
+    alert('Copy failed — please select and copy manually.');
   });
 }
 

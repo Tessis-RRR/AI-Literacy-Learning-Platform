@@ -308,13 +308,13 @@ const MODULES = [
   {
     id: 2, number: 2, kind: 'Co-Design Tool',
     title: 'Lesson Builder',
-    description: 'Generate and refine daily lesson plans with the AI co-designer. Inputs become drafts in seconds.',
-    icon: '🏗️', duration: 'Coming soon', steps: 0, progress: 0, status: 'notstarted',
+    description: 'Create classroom-ready lesson plans through guided conversation. Answer quick questions, get a full lesson draft, and adjust for your classroom.',
+    icon: '🏗️', duration: '~20 min', steps: 0, progress: 0, status: 'available',
     tint: '#FCE8DA', accent: '#E89461', illustration: 'crane',
     outcomes: [
-      'Brief the AI with grade, level, and standard in under 90 seconds',
-      'Edit lesson sections directly with tracked changes',
-      'Export to PDF, Google Doc, or share-link for co-teachers',
+      'Collect learning goals and classroom context through conversational questions',
+      'Generate AI-powered lesson plans aligned to proficiency levels (L1–L5)',
+      'Review and revise lessons on one adjustment page with structured feedback',
     ],
     detailSteps: [], steps_data: []
   },
