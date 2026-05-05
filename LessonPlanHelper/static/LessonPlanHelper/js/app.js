@@ -419,7 +419,6 @@ function renderShell() {
   const nav = state.dashNav || 'dashboard';
   let mainContent;
   if (nav === 'dashboard')    mainContent = renderShellDashboardContent();
-  else if (nav === 'conversation') mainContent = renderShellConversationContent();
   else if (nav === 'modules') mainContent = renderShellModulesContent();
   else if (nav === 'toolkit')    mainContent = renderShellToolkitContent();
   else if (nav === 'community')  mainContent = renderShellCommunityContent();
@@ -446,8 +445,7 @@ function renderShell() {
 function renderShellSidebar(activeNav) {
   const items = [
     { id: 'dashboard',    label: 'Dashboard',    icon: 'home' },
-    { id: 'conversation', label: 'Conversation', icon: 'send' },
-    { id: 'modules',   label: 'Modules',    icon: 'book',    badge: '3' },
+    { id: 'modules',   label: 'Tutorials',    icon: 'book',    badge: '3' },
     { id: 'toolkit',   label: 'Toolkit',    icon: 'builder', badge: '3' },
     { id: 'library',   label: 'My Library', icon: 'folder' },
     { id: 'students',  label: 'Students',   icon: 'users' },
@@ -547,7 +545,7 @@ function renderShellDashboardContent() {
 
   const statsData = [
     { icon: 'bolt',  num: '6',    label: 'Day streak',       tint: '#FCE8DA', accent: '#B95D2A' },
-    { icon: 'check', num: '1/6',  label: 'Modules complete', tint: '#E5F0E0', accent: '#3E6B30' },
+    { icon: 'check', num: '1/6',  label: 'Tutorials complete', tint: '#E5F0E0', accent: '#3E6B30' },
     { icon: 'file',  num: '12',   label: 'Saved resources',  tint: '#DCEBF7', accent: '#3F6FA1' },
     { icon: 'clock', num: '42m',  label: 'This week',        tint: '#E8E4FB', accent: '#4338CA' },
   ];
@@ -594,87 +592,6 @@ function renderShellDashboardContent() {
   );
 }
 
-function renderShellConversationContent() {
-  var msgs = state.chatMessages || [];
-  var tools = MODULES.filter(function(m) { return m.kind === 'Co-Design Tool'; });
-
-  var suggestedHtml = tools.map(function(t) {
-    return (
-      '<button class="conv-tool-chip" onclick="shellNav(\'toolkit\')">' +
-      '<span class="conv-tc-icon" style="background:' + t.tint + ';color:' + t.accent + '">' +
-      illustrationSVG(t.illustration, t.accent, t.tint, 20) + '</span>' +
-      '<span class="conv-tc-label">' + escHtml(t.title) + '</span>' +
-      iconSVG('arrowR', 13) + '</button>'
-    );
-  }).join('');
-
-  var inputBar = (
-    '<div class="conv-bar">' +
-    '<textarea id="conv-textarea" class="conv-bar-input" placeholder="Ask your ESL Co-Pilot anything — plan a lesson, draft a rubric, explain a concept…" ' +
-    'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,220)+\'px\'" ' +
-    'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendChatMessage()}">' +
-    escHtml(state.chatInput || '') + '</textarea>' +
-    '<div class="conv-bar-foot">' +
-    '<span class="conv-hint">Shift + Enter for new line</span>' +
-    '<button class="conv-send-btn" onclick="sendChatMessage()">' + iconSVG('send', 16) + ' Send</button>' +
-    '</div></div>'
-  );
-
-  // ── EMPTY STATE — large centered layout ──
-  if (msgs.length === 0) {
-    return (
-      '<div class="conv-empty-layout">' +
-      '<div class="conv-empty-head">' +
-      '<div class="conv-empty-icon">' + iconSVG('sparkle', 26, 1.5) + '</div>' +
-      '<h1 class="conv-empty-h">Good morning, <em>Shiyu</em></h1>' +
-      '<p class="conv-empty-sub">Ask anything about your lesson, or jump into a tool below.</p>' +
-      '</div>' +
-      inputBar +
-      '<div class="conv-tools-row">' +
-      '<span class="conv-tools-label">' + iconSVG('builder', 13) + ' Suggested tools</span>' +
-      '<div class="conv-tools-chips">' + suggestedHtml + '</div>' +
-      '</div>' +
-      '</div>'
-    );
-  }
-
-  // ── ACTIVE STATE — chat history + input ──
-  var msgsHtml = msgs.map(function(m) {
-    var cls = m.role === 'user' ? 'conv-msg-user' : 'conv-msg-ai';
-    var label = m.role === 'user' ? 'You' : 'ESL Co-Pilot';
-    return (
-      '<div class="conv-msg ' + cls + '">' +
-      '<div class="conv-msg-label">' + label + '</div>' +
-      '<div class="conv-msg-bubble">' + escHtml(m.text) + '</div>' +
-      '</div>'
-    );
-  }).join('');
-
-  return (
-    '<div class="conv-active-layout">' +
-    '<div class="conv-messages" id="conv-messages">' + msgsHtml + '</div>' +
-    inputBar +
-    '</div>'
-  );
-}
-
-function sendChatMessage() {
-  const ta = document.getElementById('conv-textarea');
-  const text = ta ? ta.value.trim() : (state.chatInput || '').trim();
-  if (!text) return;
-  state.chatMessages = state.chatMessages || [];
-  state.chatMessages.push({ role: 'user', text: text });
-  state.chatInput = '';
-  // Placeholder AI response
-  state.chatMessages.push({ role: 'ai', text: 'Thanks for your message! AI responses will be connected here. In the meantime, try one of the tools in the Toolkit tab.' });
-  render();
-  setTimeout(function() {
-    const el = document.getElementById('conv-messages');
-    if (el) el.scrollTop = el.scrollHeight;
-    const newTa = document.getElementById('conv-textarea');
-    if (newTa) { newTa.style.height = 'auto'; newTa.focus(); }
-  }, 0);
-}
 
 function renderShellModulesContent() {
   const filter = state.dashFilter || 'all';
@@ -726,7 +643,7 @@ function renderShellToolkitContent() {
 function renderShellStepContent() {
   const mod = MODULES.find(function(m) { return m.id === state.moduleId; });
   const origin = mod && mod.kind === 'Co-Design Tool' ? 'toolkit' : 'modules';
-  const backLabel = mod && mod.kind === 'Co-Design Tool' ? 'Toolkit' : 'Modules';
+  const backLabel = mod && mod.kind === 'Co-Design Tool' ? 'Toolkit' : 'Tutorials';
   return (
     '<div style="margin-bottom:8px">' +
     '<button class="sh-detail-back" onclick="shellNav(\'' + origin + '\')">' +
