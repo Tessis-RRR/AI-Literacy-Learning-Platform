@@ -2035,8 +2035,9 @@ function renderModuleCard(m, index) {
   const lockedCls = m.status === 'notstarted' && m.kind !== 'Co-Design Tool' ? ' sh-locked' : '';
   const delay = (index || 0) * 60;
   let statusBadge;
-  if (m.status === 'complete')     statusBadge = '<div class="sh-mod-status complete">'    + iconSVG('check', 11, 2.5) + ' Complete</div>';
+  if (m.status === 'complete')      statusBadge = '<div class="sh-mod-status complete">'    + iconSVG('check', 11, 2.5) + ' Complete</div>';
   else if (m.status === 'progress') statusBadge = '<div class="sh-mod-status progress">'   + iconSVG('play',  10)      + ' In progress</div>';
+  else if (m.status === 'available') statusBadge = '';
   else                              statusBadge = '<div class="sh-mod-status notstarted">' + iconSVG('lock',  11)      + ' Coming soon</div>';
 
   let pillHtml;
