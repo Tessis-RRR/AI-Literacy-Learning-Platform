@@ -11,7 +11,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-insecure-key-change-i
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["13.217.4.214", "localhost", "127.0.0.1"]
 
 # This variable is automatically set by Render
 render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
