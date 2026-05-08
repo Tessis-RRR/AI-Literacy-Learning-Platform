@@ -674,7 +674,7 @@ function renderShellDetailContent() {
   }).join('');
 
   const lockedMsg = !stepsHtml
-    ? '<div style="padding:24px 0;color:var(--ink-500);font-size:14px">' + iconSVG('lock', 14) + ' This module is being authored.</div>'
+    ? '<div style="padding:24px 0;color:var(--ink-500);font-size:14px">' + iconSVG('lock', 14) + ' This ' + (m.kind === 'Co-Design Tool' ? 'tool' : 'module') + ' is being authored.</div>'
     : '';
 
   const outcomesHtml = (m.outcomes || []).map(function(o) { return '<li>' + escHtml(o) + '</li>'; }).join('');
@@ -682,7 +682,8 @@ function renderShellDetailContent() {
     ? '<div class="sh-outcomes" style="margin-bottom:16px"><h3>You\'ll be able to</h3><ul>' + outcomesHtml + '</ul></div>'
     : '';
 
-  const btnLabel = m.status === 'complete' ? 'Review module' : m.status === 'progress' ? 'Continue' : 'Start module';
+  const itemWord = m.kind === 'Co-Design Tool' ? 'tool' : 'module';
+  const btnLabel = m.status === 'complete' ? 'Review ' + itemWord : m.status === 'progress' ? 'Continue' : 'Start ' + itemWord;
 
   return (
     '<div class="sh-detail">' +
@@ -691,7 +692,7 @@ function renderShellDetailContent() {
     '<div class="sh-detail-hero">' +
     '<div class="sh-dicon" style="background:' + m.tint + '">' + illustrationSVG(m.illustration, m.accent, m.tint, 108) + '</div>' +
     '<div>' +
-    '<div class="sh-mod-meta" style="margin-bottom:6px"><span>Module ' + m.number + '</span><span class="sh-mdot"></span><span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
+    '<div class="sh-mod-meta" style="margin-bottom:6px">' + (m.kind !== 'Co-Design Tool' ? '<span>Module ' + m.number + '</span><span class="sh-mdot"></span>' : '') + '<span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
     '<h1>' + escHtml(m.title) + '</h1>' +
     '<p class="sh-dlede">' + escHtml(m.description) + '</p>' +
     '<div class="sh-dmeta">' +
@@ -705,7 +706,7 @@ function renderShellDetailContent() {
     '</div></div>' +
 
     '<div class="sh-detail-grid">' +
-    '<div class="sh-steps-card"><h3>Steps in this module</h3>' + (stepsHtml || lockedMsg) + '</div>' +
+    '<div class="sh-steps-card"><h3>Steps in this ' + (m.kind === 'Co-Design Tool' ? 'tool' : 'module') + '</h3>' + (stepsHtml || lockedMsg) + '</div>' +
     '<div>' +
     outcomesBlock +
     '<div class="sh-rail-card">' +
@@ -2053,7 +2054,7 @@ function renderModuleCard(m, index) {
     '<div class="sh-mod-thumb" style="background:' + m.tint + '">' +
     '<div class="sh-mod-thumb-art">' + illustrationSVG(m.illustration, m.accent, m.tint, 132) + '</div>' +
     statusBadge + '</div>' +
-    '<div class="sh-mod-meta"><span>Module ' + m.number + '</span><span class="sh-mdot"></span><span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
+    '<div class="sh-mod-meta">' + (m.kind !== 'Co-Design Tool' ? '<span>Module ' + m.number + '</span><span class="sh-mdot"></span>' : '') + '<span class="sh-mtype">' + escHtml(m.kind) + '</span></div>' +
     '<h3>' + escHtml(m.title) + '</h3>' +
     '<p class="sh-mod-desc">' + escHtml(m.description) + '</p>' +
     '<div class="sh-mod-foot"><div class="sh-mfl"><span>' + iconSVG('clock', 13) + ' ' + escHtml(m.duration) + '</span><span>' + iconSVG('list', 13) + ' ' + m.steps + ' steps</span></div>' +
